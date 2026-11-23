@@ -109,7 +109,7 @@ Each item is a multi-step audio sequence that ends in a print.
 
 ### 7.3 Archive (cloud is the primary copy)
 - A permanent record of every story, grandma recording, Zozo recording, mood entry and log event, plus a copy of every print (the rendered image).
-- The cloud bucket is the source of truth. The Pi caches recent items and queues uploads while offline.
+- **Cloudflare R2** (the owner's existing account) is the source of truth. The Pi caches recent items and queues uploads while offline.
 - Audio is stored as Opus. The index keeps metadata.
 - Deleting or overwriting only stops publishing. The archive keeps the item with flags and timestamps, including grandma messages he never heard. **Purge permanently** is a separate action that needs confirmation.
 
@@ -139,4 +139,4 @@ Each item is a multi-step audio sequence that ends in a print.
 ## 9. Open items
 1. LED driver part selection (off-the-shelf, 4 PWM channels at 5V).
 2. Confirm the handset has no hook switch.
-3. Choice of cloud provider (archive bucket, relay host, AI, text-to-speech, speech-to-text).
+3. Cloud services still to choose: relay host (Cloudflare Workers is a natural fit next to R2), AI, text-to-speech, speech-to-text. Archive storage = Cloudflare R2 (decided).
