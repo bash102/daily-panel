@@ -22,7 +22,7 @@ LG_WD_ENV = "LG_WD"
 def ensure_lg_wd(cwd: str | None = None, env: dict | None = None) -> str | None:
     """gpiozero's default pin factory on Bookworm (lgpio) creates its
     notification files in $LG_WD, else the current directory. When that is
-    not writable (e.g. `sudo -u zozobox zozobox-bench` from an admin's home),
+    not writable (e.g. zozobox-bench run as another user from an admin's home),
     opening the gpiochip fails. Point LG_WD at a writable directory first.
     Returns the directory set, or None when nothing needed changing."""
     env = os.environ if env is None else env

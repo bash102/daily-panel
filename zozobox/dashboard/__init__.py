@@ -3,7 +3,7 @@
     from zozobox.dashboard import create_app
     app = create_app(store, printer)     # printer: zozobox.printer.Printer
 
-CLI: python -m zozobox.dashboard --data-dir DIR --host 0.0.0.0 --port 8080
+CLI: python -m zozobox.dashboard --data-dir DIR --host 127.0.0.1 --port 8791
 FastAPI/Jinja2 are imported lazily inside create_app.
 """
 

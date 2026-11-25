@@ -1,11 +1,12 @@
-# /etc/zozobox/box.toml - static configuration of this box (PLAN M10).
+# ~/.config/zozobox/box.toml - static configuration of this box (PLAN M10).
 # Everything is optional: a missing key keeps the default shown here.
 # Unknown keys are an error, so typos are caught at start-up:
-#     /opt/zozobox/venv/bin/python -m zozobox.app --check-config
+#     cd ~/apps/daily-panel && .venv/bin/python -m zozobox.app --check-config
 # Runtime settings (quiet hours, volume, recording cap, location...) are on
-# the dashboard, not here. install.sh never overwrites this file.
+# the dashboard, not here. deploy/host-setup.sh never overwrites this file.
+# After an edit: sudo systemctl restart app-zozobox
 
-# data_dir = "/var/lib/zozobox"      # the env var ZOZOBOX_DATA_DIR wins
+# data_dir = "/home/<user>/.local/share/zozobox"   # default; ZOZOBOX_DATA_DIR wins
 
 [buttons]
 # BCM GPIO numbers (SPEC 1, internal pull-ups; one leg to the pin, one to GND).
@@ -78,11 +79,12 @@ mixer_control = "Mic"
 # recent_clips = 5
 
 [app]
-# Run by the parent chord. deploy/sudoers/zozobox-poweroff allows exactly this.
+# Run by the parent chord. deploy/sudoers/zozobox-poweroff (installed for the
+# service user by deploy/host-setup.sh) allows exactly this.
 # shutdown_command = ["sudo", "-n", "/usr/bin/systemctl", "poweroff"]
 # printer_retry_s = 60.0
 # printer_lock_timeout_s = 30.0   # a reprint waits this long for the engine's print
 # hw_retry_s = 30.0               # buttons / LEDs that failed at start-up are retried
-# soundboard_dir = "/var/lib/zozobox/soundboard"
-# phrases_dir = "/var/lib/zozobox/assets/phrases"   # fallback <phrase>.wav files
+# soundboard_dir = "<data dir>/soundboard"
+# phrases_dir = "<data dir>/assets/phrases"   # fallback <phrase>.wav files
 # log_level = "INFO"

@@ -1,10 +1,10 @@
 """zozobox-import-clip: add sound files to the soundboard (SPEC 2.3).
 
     zozobox-import-clip cow.flac --source https://freesound.org/s/12345/ --license CC0
-    zozobox-import-clip *.wav --dir /var/lib/zozobox/soundboard
+    zozobox-import-clip *.wav --dir ~/.local/share/zozobox/soundboard
 
 The default directory is the engine's: box.toml `[app].soundboard_dir`
-($ZOZOBOX_CONFIG or /etc/zozobox/box.toml), else <data dir>/soundboard.
+($ZOZOBOX_CONFIG or ~/.config/zozobox/box.toml), else <data dir>/soundboard.
 Run it as the zozobox user on a file that user can read (not one in an
 admin's 0700 home directory): see docs/DEPLOY.md.
 
@@ -100,7 +100,7 @@ def main(argv: Sequence[str] | None = None, *,
                     help="soundboard dir (default: the engine's [app].soundboard_dir from "
                          "box.toml, else <data dir>/soundboard)")
     ap.add_argument("--config", default=None, help="box.toml (default $ZOZOBOX_CONFIG or "
-                                                   "/etc/zozobox/box.toml)")
+                                                   "~/.config/zozobox/box.toml)")
     ap.add_argument("--name", help="file name for a single clip (default: from the source name)")
     ap.add_argument("--source", default="", help="where it came from, e.g. the Freesound URL")
     ap.add_argument("--license", default="CC0", help="license (default CC0)")

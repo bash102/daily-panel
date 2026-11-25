@@ -1,3 +1,6 @@
+# Everything the app or an install writes inside the clone must be ignored:
+# pi-ops' git-deploy refuses to deploy over "worktree has local changes".
+# (Runtime data lives in ~/.local/share/zozobox, outside the clone.)
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -5,3 +8,9 @@ __pycache__/
 .venv/
 build/
 dist/
+# lgpio notification files, if anything ever runs with the clone as its cwd
+.lgd-nfy*
+# local runs
+fake-prints/
+*.log
+node_modules/

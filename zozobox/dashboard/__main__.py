@@ -4,14 +4,14 @@
     --printer brother        the Brother QL-800 behind the cross-process printer
                              lock (<data-dir>/.printer.lock), shared with the
                              engine, which drives the same USB device. This is
-                             what deploy/systemd/zozobox-dashboard.service uses.
+                             what the supervisor (python -m zozobox.run) uses.
                              `locked` is an alias.
     --printer pkg.mod:func   call func() for the Printer
     --printer fake[:DIR]     FakePrinter, saving PNGs to DIR if given
     --secure-cookies         set the Secure flag (only when served over HTTPS)
     --config PATH            box config for `brother` ([printer] identifier/model/
                              label/backend, [app].printer_lock_timeout_s); default
-                             $ZOZOBOX_CONFIG or /etc/zozobox/box.toml, the same
+                             $ZOZOBOX_CONFIG or ~/.config/zozobox/box.toml, the same
                              file the engine reads (missing = defaults)
     --open-setup             no setup token (local development only)
 
@@ -35,7 +35,9 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-DEFAULT_DATA_DIR = "/var/lib/zozobox"
+from zozobox.paths import data_dir_from_env, default_data_dir
+
+DEFAULT_DATA_DIR = str(default_data_dir())
 SETUP_TOKEN_FILE = "dashboard-setup-token"
 
 log = logging.getLogger("zozobox.dashboard")
@@ -50,7 +52,7 @@ class NoPrinter:
 
 def make_printer(spec: str, data_dir: str | None = None, config: str | None = None) -> Any:
     """`config`: box.toml path for `brother` (None = $ZOZOBOX_CONFIG or
-    /etc/zozobox/box.toml). Raises ConfigError on a bad file."""
+    ~/.config/zozobox/box.toml). Raises ConfigError on a bad file."""
     if spec == "none":
         return NoPrinter()
     if spec in ("brother", "locked"):
@@ -59,7 +61,7 @@ def make_printer(spec: str, data_dir: str | None = None, config: str | None = No
 
         cfg = load_app_config(config, required=bool(config))
         return make_locked_brother(
-            data_dir or os.environ.get("ZOZOBOX_DATA_DIR", DEFAULT_DATA_DIR), cfg.printer,
+            data_dir or str(data_dir_from_env()), cfg.printer,
             retry_s=cfg.app.printer_retry_s, lock_timeout_s=cfg.app.printer_lock_timeout_s)
     if spec == "fake" or spec.startswith("fake:"):
         from zozobox.printer import FakePrinter
@@ -94,7 +96,7 @@ def setup_token(data_dir: str | os.PathLike) -> str | None:
         with os.fdopen(fd, "w") as f:
             f.write(token + "\n")
     os.chmod(path, 0o600)
-    log.warning("dashboard: no parent password yet. Open http://<box>:<port>/setup?token=%s "
+    log.warning("dashboard: no parent password yet. Open <dashboard URL>/setup?token=%s "
                 "(the token is also in %s)", token, path)
     return token
 
@@ -102,7 +104,7 @@ def setup_token(data_dir: str | os.PathLike) -> str | None:
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m zozobox.dashboard",
                                  description="Zozo box parent dashboard")
-    ap.add_argument("--data-dir", default=os.environ.get("ZOZOBOX_DATA_DIR", DEFAULT_DATA_DIR))
+    ap.add_argument("--data-dir", default=str(data_dir_from_env()))
     ap.add_argument("--host", default=os.environ.get("ZOZOBOX_DASHBOARD_HOST", "0.0.0.0"))
     ap.add_argument("--port", type=int,
                     default=int(os.environ.get("ZOZOBOX_DASHBOARD_PORT", "8080")))

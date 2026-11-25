@@ -1,0 +1,6 @@
+# GPIO and I2C access for the gpio and i2c groups on a plain Debian Pi.
+# Raspberry Pi OS already does this (raspberrypi-sys-mods' 99-com.rules), so
+# deploy/host-setup.sh installs this file only when that rule is absent. The
+# pi-ops service user is added to both groups.
+SUBSYSTEM=="gpio", KERNEL=="gpiochip[0-9]*", GROUP="gpio", MODE="0660"
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-[0-9]*", GROUP="i2c", MODE="0660"

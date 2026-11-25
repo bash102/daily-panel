@@ -1,7 +1,7 @@
 """Parent dashboard web app (SPEC 8), FastAPI + Jinja2, server-rendered.
 
     app = create_app(store, printer)          # tests: fastapi.testclient.TestClient(app)
-    python -m zozobox.dashboard --data-dir /var/lib/zozobox --host 0.0.0.0 --port 8080
+    python -m zozobox.dashboard --data-dir ~/.local/share/zozobox --host 127.0.0.1 --port 8791
 
 It runs as its own process with its own Store connection. It never talks to
 the cloud: changes that the cloud must know about (withholding Zozo's
@@ -100,6 +100,36 @@ class DashboardConfig:
     # zozobox.dashboard.__main__); None = open setup (tests, local dev).
     setup_token: str | None = None
     setup_token_file: Path | None = None     # removed once the password is set
+
+
+LOOPBACK = ("127.0.0.1", "::1", "localhost")
+
+
+def login_client_key(peer: str | None, headers) -> str:
+    """Who a login attempt is counted against (LoginLimiter's per-client limit).
+
+    Under pi-ops the dashboard binds 127.0.0.1 and is reached only through
+    `tailscale serve`, so every request's socket peer is loopback. Keying on it
+    would make the per-client limit one shared bucket: one parent's typos would
+    lock every parent out. For a loopback peer, the Tailscale identity that
+    serve adds is used instead: Tailscale-User-Login (a user's device; serve
+    replaces any copy the client sent), else the last X-Forwarded-For entry
+    (the one serve appended: the tailnet address of a tagged device). Without
+    either it stays the shared loopback bucket. A non-loopback peer (a LAN
+    bind, tests) is keyed on its address and the headers are ignored, since
+    any client could send them. The global limit applies either way.
+    """
+    if not peer:
+        return "unknown"
+    if peer not in LOOPBACK and not peer.startswith("127."):
+        return peer
+    login = (headers.get("tailscale-user-login") or "").strip()
+    if login and len(login) <= 256:
+        return f"ts:{login.lower()}"
+    xff = [p.strip() for p in (headers.get("x-forwarded-for") or "").split(",") if p.strip()]
+    if xff and len(xff[-1]) <= 64:
+        return f"fwd:{xff[-1]}"
+    return peer
 
 
 class _NeedAuth(Exception):
@@ -260,7 +290,8 @@ def create_app(
         return s
 
     def client_key(request: Request) -> str:
-        return request.client.host if request.client else "unknown"
+        return login_client_key(request.client.host if request.client else None,
+                                request.headers)
 
     # -- dependencies -----------------------------------------------------------
     def authed(request: Request) -> Session:

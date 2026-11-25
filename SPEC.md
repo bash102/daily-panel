@@ -14,7 +14,7 @@ Design principle: every interaction is a single press, and the box must survive 
 | Handset | **Native Union POP Phone (USB-C)**, purchased. Earpiece and mic in one USB audio device. Connects to the Pi 3 through a USB-C(female) to USB-A(male) adapter. **No hook switch in v1**: the box can't tell whether the handset is lifted, so speech always plays on both the handset and the box speaker. Its 3.2m coiled cord must be shortened, or held inside the box, to the ≤30cm limit. Its pick-up/hang-up button may show up in Linux as an input key; that's unverified, and if it does it will be ignored or used as a parent shortcut. Optional later upgrade: an Adafruit magnetic contact switch (#375, ~$4) under the handset rest, with a magnet on the handset, on one GPIO input. |
 | Box speaker | Secondary speaker used as speakerphone and for chimes. Likely needs its own USB DAC + 2–3W amp. |
 | Printer | Brother QL-800, continuous 62mm paper (no stickers). Driven with `brother_ql`. |
-| Power | One 5.1V 3–4A supply for the Pi and LED driver; the printer uses its own adapter. Root filesystem runs as an overlay so pulling the plug is safe. |
+| Power | One 5.1V 3–4A supply for the Pi and LED driver; the printer uses its own adapter. No read-only overlay root (it would discard pi-ops' deploy state on reboot); pulling the plug is made safe by SQLite WAL and atomic writes, with an optional separate data partition (docs/DEPLOY.md). |
 | Enclosure | Wall-mounted. Printer inside the box behind a ~5mm finger-proof slot with a parent-access lid and ventilation. Handset on a coiled cord no longer than 30cm, with strain relief. |
 
 ### 1.1 LED driver wiring (PCA9685)
@@ -158,7 +158,8 @@ Total about $10–15/month, under the $30 cap.
 - When it's reached, nightly generation pauses and he gets cached and evergreen content. The dashboard alerts you.
 
 ## 8. Parent dashboard
-- Hosted on the Pi. Reachable on the home network and over Tailscale (access limited to parent devices). Password required.
+- Hosted on the Pi. Reachable **over Tailscale only** (access limited to parent devices), published with `tailscale serve` by the pi-ops deployment; the dashboard itself listens on localhost. Not reachable on the home network: pi-ops serves apps to the tailnet only, Tailscale gives HTTPS with a real certificate and device-level access control for free, and nothing on the LAN (guests' devices, IoT gadgets) can reach the login or first-run setup page. Parents' phones and laptops run Tailscale. Password required.
+- Accepted risk (pi-ops): the whole box, the dashboard included, runs as the pi-ops service user `bash102`, which has passwordless `sudo systemctl` for git-deploy, so it is effectively root, and pi-ops' unit has no sandboxing. A code-execution bug in the dashboard would be root on the Pi. Tailscale-only access, the password and the login limits (per parent, keyed on the Tailscale identity) are what keep it out of reach; the old dedicated, sandboxed `zozobox` user is not available under unmodified pi-ops.
 - Features:
   - Reprint anything.
   - Browse and play the archive.

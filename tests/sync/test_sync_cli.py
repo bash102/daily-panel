@@ -46,7 +46,7 @@ def test_once_offline_exits_two(env, capsys):
 def test_missing_env(monkeypatch, capsys):
     monkeypatch.delenv("ZOZOBOX_CLOUD_URL", raising=False)
     monkeypatch.setenv("ZOZOBOX_BOX_TOKEN", TOKEN)
-    assert main(["once"]) == 1
+    assert main(["once"]) == 3
     err = capsys.readouterr().err
     assert "ZOZOBOX_CLOUD_URL" in err and TOKEN not in err
 
@@ -71,7 +71,7 @@ def test_bad_store(env, capsys):
     def broken(d):
         raise OSError("disk gone")
 
-    assert main(["once"], make_store=broken) == 1
+    assert main(["once"], make_store=broken) == 3
     assert "cannot open store" in capsys.readouterr().err
 
 
@@ -93,13 +93,13 @@ def test_default_normalizer_without_ffmpeg(monkeypatch):
     ("https://user:pw@cloud.test", TOKEN),
     ("https://cloud.test", "replace-me"),
 ])
-def test_placeholder_or_unsafe_cloud_settings_exit_one(monkeypatch, tmp_path, capsys, url, token):
+def test_placeholder_or_unsafe_cloud_settings_exit_config_status(monkeypatch, tmp_path, capsys, url, token):
     monkeypatch.setenv("ZOZOBOX_CLOUD_URL", url)
     monkeypatch.setenv("ZOZOBOX_BOX_TOKEN", token)
     called = []
     rc = main(["once", "--data-dir", str(tmp_path)],
               make_store=lambda d: called.append(d), make_client=lambda *a: called.append(a))
-    assert rc == 1 and called == []
+    assert rc == 3 and called == []
     err = capsys.readouterr().err
     assert "ZOZOBOX_" in err and TOKEN not in err
 
@@ -110,3 +110,22 @@ def test_check_cloud_config_accepts_https_and_local_http():
     assert check_cloud_config("https://zozobox.someone.workers.dev", TOKEN) is None
     assert check_cloud_config("http://127.0.0.1:8787", TOKEN) is None
     assert check_cloud_config("http://localhost:8787/", TOKEN) is None
+
+
+def test_an_unexpected_crash_is_not_the_config_status(env):
+    """An uncaught exception exits 1 (Python's default), which the supervisor
+    restarts with backoff; only EXIT_CONFIG (3) means 'fix the config'."""
+    from zozobox.sync.__main__ import EXIT_CONFIG
+
+    class Boom(Exception):
+        pass
+
+    def client(*a):
+        class C:
+            def run(self, *a, **k):
+                raise Boom("bug")
+        return C()
+
+    with pytest.raises(Boom):
+        main(["run"], make_client=client, stop=threading.Event())
+    assert EXIT_CONFIG not in (0, 1, 2)

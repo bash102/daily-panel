@@ -1,15 +1,16 @@
 # Hardware bring-up checklist (M11)
 
-This checklist is for the owner, at the real box, after [DEPLOY.md](DEPLOY.md) steps 1 to 7. Work through it in order and tick each box. Whenever a step changes `/etc/zozobox/box.toml`, run `cd /tmp && sudo -u zozobox /opt/zozobox/venv/bin/python -m zozobox.app --check-config`, then `sudo systemctl restart zozobox-engine zozobox-dashboard`.
+This checklist is for the owner, at the real box, after [DEPLOY.md](DEPLOY.md) steps 1 to 8. Work through it in order and tick each box. Run every command as the pi-ops service user (the user that owns `~/apps/daily-panel`). Whenever a step changes `~/.config/zozobox/box.toml`, run `~/apps/daily-panel/.venv/bin/python -m zozobox.app --check-config`, then `sudo systemctl restart app-zozobox`.
 
-Stop the engine before you use the bench tool, because the engine owns the pins and the audio devices:
+Stop the box before you use the bench tool, because the engine owns the pins and the audio devices. `app-zozobox` is one unit for the engine, the dashboard and sync, so they all stop; start it again when you are done (`sudo systemctl start app-zozobox`). A deploy while it is stopped would start it again, so hold deploys for the session:
 
 ```bash
-sudo systemctl stop zozobox-engine
-bench() { (cd /tmp && sudo -u zozobox env LG_WD=/tmp /opt/zozobox/venv/bin/zozobox-bench "$@"); }
+git-deploy pause daily-panel --reason "bring-up bench tests"
+sudo systemctl stop app-zozobox
+bench() { (cd ~/.local/share/zozobox && LG_WD=$PWD ~/apps/daily-panel/.venv/bin/zozobox-bench "$@"); }
 ```
 
-The `cd /tmp` and `LG_WD` matter: gpiozero's lgpio pin factory writes small notification files into its working directory, and the `zozobox` user cannot write to your home directory. (The bench and the engine also point `LG_WD` at a writable directory themselves when the current one isn't writable.)
+The `cd` and `LG_WD` matter: gpiozero's lgpio pin factory writes small notification files into its working directory, and they must not land in the clone (`~/apps/daily-panel`), where they would block deploys. Afterwards: `sudo systemctl start app-zozobox`, then `git-deploy resume daily-panel` and `git-deploy sync daily-panel`.
 
 ## 1. Wiring (SPEC 1, 1.1)
 
@@ -41,9 +42,9 @@ The `cd /tmp` and `LG_WD` matter: gpiozero's lgpio pin factory writes small noti
 
 - [ ] Run `aplay -l` and `arecord -l`. Note the short name in brackets for each card, for example `card 1: Phone [POP Phone]` gives `Phone`. Check that the handset shows up as both a playback and a capture device (SPEC 9.2).
 - [ ] Run `amixer -c <card> scontrols` for each card. Note the playback control (`PCM`, `Speaker`, `Headphone`...) and the mic control (`Mic`, `Capture`...).
-- [ ] Put the names into `/etc/zozobox/box.toml`: `[audio.handset].card` and `.mixer_control`, `[audio.speaker]`, and `[audio.mic].card` and `.mixer_control`. Use `"none"` if a card has no control. Its ceiling then comes only from asound.conf.
+- [ ] Put the names into `~/.config/zozobox/box.toml`: `[audio.handset].card` and `.mixer_control`, `[audio.speaker]`, and `[audio.mic].card` and `.mixer_control`. Use `"none"` if a card has no control. Its ceiling then comes only from asound.conf.
 - [ ] Put the same card names into `/etc/asound.conf`: `hw:CARD=...` and `card ...` in both blocks. For each output, check its channel count with `aplay -D hw:CARD=<card> --dump-hw-params /dev/zero`. If it only takes 1 channel, set `channels 1` in that dmix block.
-- [ ] Test each PCM: `aplay -D zozobox_handset /var/lib/zozobox/chimes/beep.wav` and the same with `zozobox_speaker`.
+- [ ] Test each PCM: `aplay -D zozobox_handset ~/.local/share/zozobox/chimes/beep.wav` and the same with `zozobox_speaker`. (The engine writes the chimes at its first start.)
 - [ ] Set the softvol caps to 100%: `amixer -c <handset card> sset 'Zozobox Handset Cap' 100%` and `amixer -c <speaker card> sset 'Zozobox Speaker Cap' 100%`. The controls appear after the first play. Then run `sudo alsactl store`.
 - [ ] Check the handset's pick-up button: `sudo evtest`. Note whether it shows up as a key. v1 ignores it (SPEC 9.2).
 
@@ -51,7 +52,7 @@ The `cd /tmp` and `LG_WD` matter: gpiozero's lgpio pin factory writes small noti
 
 You need a sound level meter, or a calibrated meter app, set to dBA and slow response. The target is **75 to 80 dBA at the earpiece**, held against the meter as it would be against an ear. Do the box speaker at Zozo's usual distance.
 
-- [ ] Use a real speech asset as the calibration clip, for example an evergreen story chunk: `ls /var/lib/zozobox/media/evergreen/story/*/chunk_0.wav | head -1`. Every asset is normalized to -16 LUFS, so speech is representative.
+- [ ] Use a real speech asset as the calibration clip, for example an evergreen story chunk: `ls ~/.local/share/zozobox/media/evergreen/story/*/chunk_0.wav | head -1`. Every asset is normalized to -16 LUFS, so speech is representative.
 - [ ] Run `bench audio --volume 1.0 --file <that clip>`. This plays at the **maximum** dashboard volume, which is the worst case.
 - [ ] Measure the earpiece. If it is louder than 80 dBA, first lower `max_dB` in the handset softvol block of `/etc/asound.conf` (the hard cap, in 3 dB steps), then fine-tune `[audio.handset].max_fraction`. Repeat until the peak is 80 dBA or less.
 - [ ] Do the same for the speaker: `[audio.speaker].max_fraction` and the speaker `max_dB`.
@@ -72,15 +73,15 @@ You need a sound level meter, or a calibrated meter app, set to dBA and slow res
 - [ ] Load DK-22205 (62 mm continuous) paper.
 - [ ] `bench print all` prints a letter card, a weather card, the four-faces mood card and a coloring page, each cut. Check that each card is exactly 62 mm wide and crisp, with nothing cut off.
 - [ ] Unplug the printer and run `bench print mood`: it prints `FAILED ... no USB device`, with no crash. Plug it back in.
-- [ ] With the engine running, unplug the printer and press Print: you hear "printer sleepy". Plug it back in, wait about 1 minute (the retry), and press Print again: the card prints.
+- [ ] With the box running (`sudo systemctl start app-zozobox`), unplug the printer and press Print: you hear "printer sleepy". Plug it back in, wait about 1 minute (the retry), and press Print again: the card prints.
 - [ ] Do a dashboard reprint while the engine prints. The cards come out one after the other, not garbled (the shared lock).
 
 ## 8. Engine end-to-end
 
-- [ ] `sudo systemctl start zozobox-engine`, then `journalctl -u zozobox-engine -g "engine ready"`. The output should say `leds=ok, buttons=ok, audio=ok, printer=ok, mood_classifier=ok`. Anything `failed` is named, with its reason.
+- [ ] `sudo systemctl start app-zozobox`, then `journalctl -u app-zozobox -g "engine ready"`. The output should say `leds=ok, buttons=ok, audio=ok, printer=ok, mood_classifier=ok`. Anything `failed` is named, with its reason.
 - [ ] Every accepted press clicks on the box speaker.
 - [ ] Print goes through the rotation letter → weather → mood → coloring, and each prints once. A fifth press replays the audio with no card. The Print LED is bright until all four have printed.
-- [ ] **Mood:** answer "happy", and you hear "You feel happy!" and get the happy face. Stay silent, and you get four faces. Unplug the network and answer: you get four faces, and later the `zozobox-mood-reprocess` timer labels the take.
+- [ ] **Mood:** answer "happy", and you hear "You feel happy!" and get the happy face. Stay silent, and you get four faces. Unplug the network and answer: you get four faces, and within the hour the supervisor's mood reprocess job labels the take (`journalctl -u app-zozobox -g '^mood:'`).
 - [ ] Story plays. Pressing again skips a chunk. Once the story is heard, the Story LED goes dim.
 - [ ] Soundboard plays a different clip each press.
 
@@ -94,10 +95,10 @@ You need a sound level meter, or a calibrated meter app, set to dBA and slow res
 
 ## 10. Sync
 
-- [ ] `journalctl -u zozobox-sync -f` shows passes with no errors. The dashboard shows the sync status as online.
+- [ ] `journalctl -u app-zozobox -g '^sync:' -f` shows no errors (sync only logs warnings and errors). The dashboard shows the sync status as online.
 - [ ] Prints, Zozo's recordings and mood takes appear in the R2 bucket under `prints/`, `recordings/zozo/` and `mood/`.
 - [ ] Pull the network for 10 minutes, use the box, then reconnect. The outbox drains, and nothing is lost.
-- [ ] Hold red and yellow for 5 s while online. You hear two beeps, the LEDs blink, and the Pi powers off cleanly. Offline (or with `zozobox-sync` stopped for more than 5 minutes), you hear one beep.
+- [ ] Hold red and yellow for 5 s while online. You hear two beeps, the LEDs blink, and the Pi powers off cleanly. Offline (or with sync not running for more than 5 minutes, for example while the cloud values in the env file are placeholders), you hear one beep.
 
 ## 11. First-month approvals
 
@@ -118,6 +119,6 @@ You need a sound level meter, or a calibrated meter app, set to dBA and slow res
 - [ ] Slap during each experience: during a print (the card still prints, or the next press replays), during the grandma recording (the reply is saved and the slapped button starts), and during the mood question.
 - [ ] Yank the handset cord gently and knock the box: nothing comes loose, and the cord holds.
 - [ ] Pull the power plug while it is playing, then plug it back in. The box boots, the engine starts, and the data is intact: yesterday's prints and messages are still on the dashboard.
-- [ ] Afterwards, `journalctl -u zozobox-engine -p warning` shows no tracebacks. Note anything odd in docs/PLAN.md.
+- [ ] Afterwards, `journalctl -u app-zozobox -g '^engine:.*(Traceback|ERROR)'` shows nothing unexpected. Note anything odd in docs/PLAN.md.
 
-When everything here is ticked, set M11 to done in [PLAN.md](PLAN.md) and enable the read-only root (DEPLOY.md section 9).
+When everything here is ticked, set M11 to done in [PLAN.md](PLAN.md). Remember to resume deploys if you paused them (`git-deploy resume daily-panel`).

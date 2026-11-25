@@ -7,12 +7,15 @@ Environment:
     ZOZOBOX_CLOUD_URL   worker base URL (its PUBLIC_BASE_URL), https:// only;
                         plain http only for localhost (tests/development)
     ZOZOBOX_BOX_TOKEN   bearer token (the worker's BOX_TOKEN secret)
-    ZOZOBOX_DATA_DIR    store location (default /var/lib/zozobox)
+    ZOZOBOX_DATA_DIR    store location (default ~/.local/share/zozobox)
 
 This must be the only process that opens the store with recover_outbox=True.
-Exit codes: 0 ok, 1 usage/config/store error (missing, placeholder or
-non-https cloud settings), 2 `once` finished with errors
-(offline or rejected uploads; they stay queued).
+Exit codes: 0 ok, 2 `once` finished with errors (offline or rejected
+uploads; they stay queued) or a usage error (argparse), 3 config/store error
+(missing, placeholder or non-https cloud settings, or the store or client
+cannot be set up). An uncaught exception exits 1 like any Python program, so
+the supervisor (zozobox.run) restarts it with backoff; only 3 is treated as a
+configuration problem.
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ from typing import Callable, Sequence
 CLOUD_URL_ENV = "ZOZOBOX_CLOUD_URL"
 TOKEN_ENV = "ZOZOBOX_BOX_TOKEN"
 DATA_DIR_ENV = "ZOZOBOX_DATA_DIR"
-DEFAULT_DATA_DIR = "/var/lib/zozobox"
+EXIT_CONFIG = 3  # config/store error: see the module docstring
 
 
 PLACEHOLDERS = ("replace-me", "example.workers.dev", "<", ">")
@@ -41,7 +44,7 @@ def check_cloud_config(url: str, token: str) -> str | None:
         return f"set {CLOUD_URL_ENV} and {TOKEN_ENV}"
     for name, val in ((CLOUD_URL_ENV, url), (TOKEN_ENV, token)):
         if any(p in val.lower() for p in PLACEHOLDERS):
-            return f"{name} is still a placeholder (edit /etc/zozobox/secrets.env)"
+            return f"{name} is still a placeholder (edit ~/.config/zozobox/env)"
     from urllib.parse import urlsplit
 
     try:
@@ -61,7 +64,9 @@ def check_cloud_config(url: str, token: str) -> str | None:
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m zozobox.sync", description=__doc__.split("\n")[0])
     p.add_argument("cmd", choices=("once", "run"), help="one pass, or loop until stopped")
-    p.add_argument("--data-dir", default=os.environ.get(DATA_DIR_ENV, DEFAULT_DATA_DIR))
+    from ..paths import data_dir_from_env
+
+    p.add_argument("--data-dir", default=str(data_dir_from_env()))
     p.add_argument("--interval", type=float, default=30.0, help="seconds between passes (run)")
     p.add_argument("--max-backoff", type=float, default=600.0, help="max seconds between passes when offline")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -84,7 +89,7 @@ def main(
     problem = check_cloud_config(url, token)
     if problem:
         print(f"error: {problem}", file=sys.stderr)
-        return 1
+        return EXIT_CONFIG
 
     if make_store is None:
         from ..store import Store
@@ -101,13 +106,13 @@ def main(
         store = make_store(args.data_dir)
     except Exception as e:
         print(f"error: cannot open store: {e}", file=sys.stderr)
-        return 1
+        return EXIT_CONFIG
     try:
         try:
             client = make_client(store, url, token)
         except Exception as e:
             print(f"error: {e}", file=sys.stderr)
-            return 1
+            return EXIT_CONFIG
         if args.cmd == "once":
             rep = client.run_once()
             print(f"uploaded={rep.uploaded} failed={rep.failed} announced={len(rep.announced)} "

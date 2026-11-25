@@ -10,7 +10,7 @@ is used whenever the last apply failed or the card looked like it dropped out
 (aplay failed to start or exited non-zero), and by default a card whose ceiling
 cannot be confirmed is not played on. This is best effort: the real backstop
 is a `softvol` hard cap in /etc/asound.conf (deploy/asound.conf, installed by
-deploy/install.sh; point CardConfig.alsa_pcm at its PCMs).
+deploy/host-setup.sh; point CardConfig.alsa_pcm at its PCMs).
 """
 
 from __future__ import annotations

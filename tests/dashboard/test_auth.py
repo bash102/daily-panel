@@ -248,6 +248,56 @@ def test_success_resets_failures(dash):
         assert c2.login("wrong password").status_code == 401
 
 
+def _ts_client(dash, login: str | None = None, xff: str | None = None):
+    """A client as tailscale serve presents it: socket peer 127.0.0.1."""
+    from fastapi.testclient import TestClient
+
+    from dash_helpers import Client
+
+    c = Client.__new__(Client)
+    headers = {}
+    if login:
+        headers["Tailscale-User-Login"] = login
+    if xff:
+        headers["X-Forwarded-For"] = xff
+    c.c = TestClient(dash.app, follow_redirects=False, client=("127.0.0.1", 40000),
+                     headers=headers)
+    return c
+
+
+def test_behind_tailscale_serve_one_parents_typos_do_not_lock_out_the_other(dash):
+    dash.client().setup()
+    mom = _ts_client(dash, login="mom@example.com")
+    for _ in range(5):
+        assert mom.login("wrong password").status_code == 401
+    assert mom.login().status_code == 429
+    dad = _ts_client(dash, login="dad@example.com")
+    assert dad.login().status_code == 303
+
+
+def test_behind_tailscale_serve_tagged_devices_are_keyed_on_the_forwarded_address(dash):
+    dash.client().setup()
+    a = _ts_client(dash, xff="100.64.0.7")
+    for _ in range(5):
+        a.login("wrong password")
+    assert a.login().status_code == 429
+    # A spoofed earlier entry does not dodge it: serve appends the real one last.
+    assert _ts_client(dash, xff="1.2.3.4, 100.64.0.7").login().status_code == 429
+    assert _ts_client(dash, xff="100.64.0.8").login().status_code == 303
+
+
+def test_login_client_key():
+    from zozobox.dashboard.app import login_client_key
+
+    h = {"tailscale-user-login": "Mom@Example.com", "x-forwarded-for": "100.64.0.9"}
+    assert login_client_key("127.0.0.1", h) == "ts:mom@example.com"
+    assert login_client_key("::1", {"x-forwarded-for": "9.9.9.9, 100.64.0.9"}) == "fwd:100.64.0.9"
+    assert login_client_key("127.0.0.1", {}) == "127.0.0.1"
+    # Headers from a non-loopback peer are anybody's: ignored.
+    assert login_client_key("192.168.1.20", h) == "192.168.1.20"
+    assert login_client_key(None, h) == "unknown"
+
+
 def test_limiter_global_cap():
     t = [0.0]
     lim = LoginLimiter(lambda: t[0], max_failures=5, max_global_failures=6, window_s=60)

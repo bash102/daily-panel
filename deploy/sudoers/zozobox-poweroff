@@ -1,5 +1,11 @@
-# /etc/sudoers.d/zozobox-poweroff (mode 0440, installed by deploy/install.sh)
+# Template for /etc/sudoers.d/zozobox-poweroff (mode 0440). deploy/host-setup.sh
+# replaces SERVICE_USER with the pi-ops service user (default: the user who ran
+# sudo, else bash102), checks the result with `visudo -cf` and installs it.
 # The parent chord (red + yellow held 5 s) shuts the box down safely
-# (SPEC 3). This allows exactly that one command, with exactly these
-# arguments, for the zozobox service user. Nothing else.
-zozobox ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff
+# (SPEC 3): the engine runs `sudo -n /usr/bin/systemctl poweroff`. This rule
+# allows exactly that one command, with exactly these arguments, for that one
+# user. It only confines anything when the user has no other sudo rights.
+# Under pi-ops it does not: the service user (bash102) already needs
+# passwordless `sudo systemctl ...` for git-deploy, which is root-equivalent,
+# and the box runs as that user (accepted risk: docs/DEPLOY.md, SPEC 8).
+SERVICE_USER ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff

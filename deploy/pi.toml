@@ -1,0 +1,56 @@
+# pi-ops manifest (github.com/bash102/pi-ops, README "Manifest reference").
+# git-deploy clones this repo to ~/apps/daily-panel on the box's Pi, tracks
+# GitHub main, and runs ONE systemd unit, app-zozobox.service, as the Pi's
+# service user. That unit is the supervisor (zozobox/run.py): it runs the
+# engine, the dashboard and cloud sync, plus the nightly content, hourly mood
+# and one-time bootstrap jobs. See docs/DEPLOY.md.
+#
+# One-time root setup that git-deploy cannot do (apt, I2C, groups, udev,
+# asound.conf, the poweroff sudoers rule, ~/.config/zozobox): deploy/host-setup.sh.
+
+service    = "zozobox"
+
+# git-deploy creates .venv with a plain `python3 -m venv .venv` before the
+# first install. Re-running venv over it with --system-site-packages rewrites
+# .venv/pyvenv.cfg (include-system-site-packages = true) and keeps what is
+# installed, so apt's python3-lgpio (gpiozero's pin factory) is importable.
+# Runs on the first install and whenever pyproject.toml or this file changes.
+install    = "python3 -m venv --system-site-packages .venv && .venv/bin/pip install -q -e '.[pi]'"
+
+start      = ".venv/bin/python -m zozobox.run"
+port       = 8791
+# Static and unauthenticated; answers as soon as the dashboard is up.
+health     = "http://127.0.0.1:8791/healthz"
+# tailscale serve --https=8792 (tailnet only). The Pi's 8000/8443 (dsdigest)
+# and 8787/8788 (emporia-data) are taken; 443 is the public Funnel.
+serve_port = 8792
+
+# The whole tree: supervisor, engine, dashboard, sync and at most one heavy
+# job (nightly, bootstrap or mood never overlap) on a 1 GB Pi 3. NOT MEASURED
+# on the Pi yet: an estimate (on x86_64 the supervisor was 24 MB RSS, the engine
+# 32 MB without the hardware libraries, the dashboard 46 MB). Leaves ~400 MB
+# for the OS and Tailscale. pi-ops sets no OOMPolicy=, so systemd's default
+# (stop) applies: ONE kernel OOM kill stops and restarts the whole box. The
+# supervisor therefore caps each heavy job with RLIMIT_DATA
+# (ZOZOBOX_JOB_MEMORY_MB, default 384, in the env file), so a job hits
+# MemoryError before the cgroup does, and it never retries a job that was
+# cut off twice. During bring-up, after a nightly and a mood run, read
+# `systemctl show -p MemoryPeak app-zozobox` and size this with >= 25% headroom
+# (docs/DEPLOY.md, step 1).
+memory_max = "600M"
+
+# Nothing is committed back: all data lives in ~/.local/share/zozobox.
+autocommit = []
+
+# Secrets (API keys, cloud URL and token): mode 600, outside the clone.
+# Template: deploy/env.example. Edit it, then `sudo systemctl restart app-zozobox`.
+env_file   = "~/.config/zozobox/env"
+
+# Non-secret settings only (committed). ZOZOBOX_DATA_DIR and ZOZOBOX_CONFIG are
+# left unset: systemd does not expand ~, so the supervisor defaults them to
+# ~/.local/share/zozobox and ~/.config/zozobox/box.toml (Path.home()).
+[env]
+ZOZOBOX_DASHBOARD_HOST    = "127.0.0.1"
+ZOZOBOX_DASHBOARD_PORT    = "8791"
+ZOZOBOX_DASHBOARD_PRINTER = "brother"
+PYTHONUNBUFFERED          = "1"

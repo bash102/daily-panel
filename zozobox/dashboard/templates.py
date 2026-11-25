@@ -140,8 +140,8 @@ SETUP = r"""{% extends "base.html" %}{% block body %}
 SETUP_LOCKED = r"""{% extends "base.html" %}{% block body %}
 <div class="login card"><h1>Welcome</h1>
 <p>Setting the first parent password needs the setup link. On the box, run
-<code>sudo cat /var/lib/zozobox/dashboard-setup-token</code> (or look in
-<code>journalctl -u zozobox-dashboard</code>) and open
+<code>cat ~/.local/share/zozobox/dashboard-setup-token</code> as the service user
+(or look in <code>journalctl -u app-zozobox -g setup</code>) and open
 <code>/setup?token=&lt;token&gt;</code> on this address.</p></div>
 {% endblock %}"""
 

@@ -31,6 +31,7 @@ dev = ["pytest>=8", "httpx", "fastapi", "jinja2", "python-multipart", "Pillow"]
 zozobox-bench = "zozobox.bench:main"
 zozobox-engine = "zozobox.app:main"
 zozobox-import-clip = "zozobox.import_clip:main"
+zozobox-run = "zozobox.run:main"
 
 [tool.setuptools.packages.find]
 include = ["zozobox*"]

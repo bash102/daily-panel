@@ -7,10 +7,10 @@
     zozobox-bench audio [--file F] [--volume V] [--seconds S]
                             # beep on the speaker, F (or the beep) on both
                             # outputs, then a mic take with its levels
-    --config FILE           # box.toml (default $ZOZOBOX_CONFIG or /etc/zozobox/box.toml)
+    --config FILE           # box.toml (default $ZOZOBOX_CONFIG or ~/.config/zozobox/box.toml)
     --fake                  # run without hardware (desktop smoke test)
 
-Stop zozobox-engine first (`sudo systemctl stop zozobox-engine`): it owns
+Stop the box first (`sudo systemctl stop app-zozobox`): the engine owns
 the GPIO pins, LEDs and audio devices. Printing goes through the shared
 printer lock, so it is safe while the dashboard runs.
 """
@@ -165,7 +165,7 @@ def main(argv=None) -> int:
                    default="both")
     p.add_argument("card", nargs="?", default="all", choices=CARDS + ("all",),
                    help="print: which card")
-    p.add_argument("--config", help="box.toml (default $ZOZOBOX_CONFIG or /etc/zozobox/box.toml)")
+    p.add_argument("--config", help="box.toml (default $ZOZOBOX_CONFIG or ~/.config/zozobox/box.toml)")
     p.add_argument("--fake", action="store_true", help="no hardware")
     p.add_argument("--hold", type=float, default=2.0, help="seconds per LED state")
     p.add_argument("--file", help="audio: file to play on both outputs (calibration)")

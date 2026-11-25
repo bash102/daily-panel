@@ -1,6 +1,6 @@
 """CLI: python -m zozobox.content {nightly,bootstrap,weather,status}
 
-    --data-dir DIR   store location (default $ZOZOBOX_DATA_DIR or /var/lib/zozobox)
+    --data-dir DIR   store location (default $ZOZOBOX_DATA_DIR or ~/.local/share/zozobox)
     bootstrap also TTS-generates the soundboard starter clips as content items
     (approval-gated like the phrases; --no-soundboard skips them).
 
@@ -14,11 +14,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from typing import Any, Sequence
 
-DEFAULT_DATA_DIR = "/var/lib/zozobox"
+from zozobox.paths import data_dir_from_env
+
 OK = {"generated", "skipped", "fallback", "ready"}
 
 
@@ -34,7 +34,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m zozobox.content",
                                  description="Zozo box nightly content pipeline")
     ap.add_argument("command", choices=["nightly", "bootstrap", "weather", "status"])
-    ap.add_argument("--data-dir", default=os.environ.get("ZOZOBOX_DATA_DIR", DEFAULT_DATA_DIR))
+    ap.add_argument("--data-dir", default=str(data_dir_from_env()))
     ap.add_argument("--force", action="store_true",
                     help="weather: refresh even if today's exists; bootstrap: redo phrases")
     ap.add_argument("--no-soundboard", action="store_true",

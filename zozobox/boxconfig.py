@@ -1,13 +1,13 @@
 """Per-box static configuration from a TOML file (PLAN M10).
 
-    cfg = load_app_config("/etc/zozobox/box.toml")   # missing file = defaults
+    cfg = load_app_config()   # $ZOZOBOX_CONFIG or ~/.config/zozobox/box.toml; missing = defaults
 
 Every table overrides the dataclass defaults field by field; anything left out
 keeps its default. Unknown keys and wrong types are errors (a typo in a pin
 name must not silently fall back to a default). See deploy/box.toml.example
 for every key.
 
-    data_dir = "/var/lib/zozobox"         # env ZOZOBOX_DATA_DIR wins over this
+    data_dir = "/path"                    # default ~/.local/share/zozobox; env ZOZOBOX_DATA_DIR wins
     [buttons]  pins = {red=17, ...}, debounce_s, lockout_s, chord, chord_hold_s
     [roles]    green = "print", red = "grandma", yellow = "soundboard", blue = "story"
     [leds]     channels = {red=0, ...}, invert, open_drain, pwm_hz, dim_level, trim, ...
@@ -36,12 +36,12 @@ from typing import Any
 from .audio.config import AudioConfig
 from .config import BoxConfig, Btn, Role
 from .engine.engine import EngineSettings
+from .paths import CONFIG_ENV, DATA_DIR_ENV, default_config_path, default_data_dir
 from .printer.backend import QLConfig
 
-DEFAULT_CONFIG_PATH = Path("/etc/zozobox/box.toml")
-DEFAULT_DATA_DIR = Path("/var/lib/zozobox")
-CONFIG_ENV = "ZOZOBOX_CONFIG"
-DATA_DIR_ENV = "ZOZOBOX_DATA_DIR"
+# The service user's home at import time (zozobox.paths computes them per call).
+DEFAULT_CONFIG_PATH = default_config_path()
+DEFAULT_DATA_DIR = default_data_dir()
 DEFAULT_SHUTDOWN = ("sudo", "-n", "/usr/bin/systemctl", "poweroff")
 
 
@@ -51,8 +51,8 @@ class ConfigError(ValueError):
 
 @dataclass(frozen=True)
 class AppSettings:
-    # Run on the parent chord (red + yellow held 5 s). deploy/sudoers allows
-    # exactly this command for the zozobox user.
+    # Run on the parent chord (red + yellow held 5 s). deploy/sudoers/zozobox-poweroff
+    # (installed by deploy/host-setup.sh) allows exactly this for the service user.
     shutdown_command: tuple[str, ...] = DEFAULT_SHUTDOWN
     printer_retry_s: float = 60.0
     # Buttons (GPIO) and LEDs (I2C) that fail at start-up are retried this often.
@@ -67,7 +67,7 @@ class AppSettings:
 
 @dataclass(frozen=True)
 class AppConfig:
-    data_dir: Path = DEFAULT_DATA_DIR
+    data_dir: Path = field(default_factory=default_data_dir)
     box: BoxConfig = field(default_factory=BoxConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
     printer: QLConfig = field(default_factory=QLConfig)
@@ -244,10 +244,10 @@ def config_from_dict(data: dict[str, Any], *, env: dict[str, str] | None = None)
 
 def load_app_config(path: str | Path | None = None, *, env: dict[str, str] | None = None,
                     required: bool = False) -> AppConfig:
-    """Load `path` (default $ZOZOBOX_CONFIG or /etc/zozobox/box.toml). A
-    missing file gives the defaults unless `required`."""
+    """Load `path` (default $ZOZOBOX_CONFIG or ~/.config/zozobox/box.toml).
+    A missing file gives the defaults unless `required`."""
     env = os.environ if env is None else env
-    p = Path(path or env.get(CONFIG_ENV) or DEFAULT_CONFIG_PATH)
+    p = Path(path or env.get(CONFIG_ENV) or default_config_path())
     try:
         raw = p.read_bytes()
     except FileNotFoundError:

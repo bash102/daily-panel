@@ -159,7 +159,9 @@ Each pass:
 ```bash
 export ZOZOBOX_CLOUD_URL=https://zozobox.example.workers.dev
 export ZOZOBOX_BOX_TOKEN=...            # = the worker's BOX_TOKEN secret
-export ZOZOBOX_DATA_DIR=/var/lib/zozobox
-python -m zozobox.sync once -v          # one pass; exit 0 ok, 1 config/store error, 2 errors (still queued)
+export ZOZOBOX_DATA_DIR=~/.local/share/zozobox   # the default when unset
+python -m zozobox.sync once -v          # one pass; exit 0 ok, 2 errors (still queued), 3 config/store error
 python -m zozobox.sync run              # loop until SIGTERM/SIGINT (--interval, --max-backoff)
 ```
+
+On the box, the supervisor (`python -m zozobox.run`, the pi-ops unit `app-zozobox`) runs `sync run` with the env file's values and skips it while they are missing or placeholders (docs/DEPLOY.md).

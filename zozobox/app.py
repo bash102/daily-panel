@@ -1,6 +1,6 @@
 """The engine process (PLAN M10): wires the real backends to the Engine.
 
-    python -m zozobox.app [--config /etc/zozobox/box.toml] [--data-dir DIR] [-v]
+    python -m zozobox.app [--config ~/.config/zozobox/box.toml] [--data-dir DIR] [-v]
     python -m zozobox.app --fake          # desktop smoke test, no hardware
     python -m zozobox.app --check-config  # load + validate the config, print it
 
@@ -18,7 +18,8 @@ printer every `app.printer_retry_s`.
 Parent chord (red + yellow held 5 s, SPEC 3): a network-status chime (two
 beeps = the last sync reached the cloud, one = offline), the LEDs blink,
 then `app.shutdown_command` runs (default `sudo -n /usr/bin/systemctl
-poweroff`; deploy/sudoers/zozobox-poweroff allows exactly that).
+poweroff`; deploy/sudoers/zozobox-poweroff, installed for the service
+user by deploy/host-setup.sh, allows exactly that).
 
 With --fake every backend is a fake; type r/g/b/y (or print/grandma/
 soundboard/story) + Enter to press a button, `chord` for the parent chord,
@@ -444,7 +445,7 @@ def key_reader(app: App, stop: threading.Event, stream=None) -> None:
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m zozobox.app", description="Zozo box engine")
     p.add_argument("--config", help="box config TOML (default $ZOZOBOX_CONFIG or "
-                                     "/etc/zozobox/box.toml; missing = defaults)")
+                                     "~/.config/zozobox/box.toml; missing = defaults)")
     p.add_argument("--data-dir", help="data dir (default $ZOZOBOX_DATA_DIR or the config's)")
     p.add_argument("--fake", action="store_true", help="fake backends (desktop smoke test)")
     p.add_argument("--keys", action=argparse.BooleanOptionalAction, default=None,
