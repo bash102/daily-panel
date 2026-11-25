@@ -98,6 +98,34 @@ Each item is a multi-step audio sequence that ends in a print.
 
 ## 7. Backend
 
+### 7.0 Cloud services (decided)
+| Job | Service | Notes |
+|---|---|---|
+| Story text, letter vocabulary, weather phrasing, mood classification | **Anthropic Claude API**, `claude-opus-5-5` | Python `anthropic` SDK. Adaptive thinking. Mood labels come back through structured output as an enum: happy, mad, sad, neutral, unknown. Enable server-side refusal fallbacks (`fallbacks: "default"`). The nightly job can go through the Message Batches API at half price. |
+| Safety check on text **and images** | **Claude** (`claude-opus-5-5`, vision) | An independent second call that reviews each story and each generated image against the content rules in 2.4 and 7.1. A different vendor from the image generator, so one model's blind spots aren't checked by the same model. |
+| Coloring pages and letter-card drawings | **OpenAI image API** (currently `gpt-image-2`) | Prompted for thick black line art on a white background. The Pi converts the result to 1-bit at the QL-800's 62mm / 300 dpi width with Pillow. Claude can't generate images, so this needs OpenAI. |
+| Text-to-speech (stories, prompts, fixed phrases) | **OpenAI TTS** | Use one fixed warm, gentle voice everywhere so Zozo hears one consistent "box voice". Fixed phrases ("Say hi to Grandma!", "Shh, the box is sleeping") are generated once and cached permanently. Pick the current model and voice when building. |
+| Speech-to-text (mood answers) | **OpenAI transcription** (`gpt-4o-mini-transcribe`, ~$0.003/min) | The transcript goes to Claude for the mood label. Toddler speech will often fail; the `unknown` path in 2.1 covers that. |
+| Archive | **Cloudflare R2** | See 7.3. |
+| Twilio relay, review timer, SMS | **Cloudflare Workers** (with R2) | Handles the Twilio webhooks, the PIN check, the 1-hour publish timer and the SMS. Works while the Pi is offline. |
+| Weather | A free weather API (e.g. Open-Meteo, no key needed) | Fetched daily; Claude turns it into toddler-friendly phrasing. |
+
+**Keys:** reuse the existing Anthropic and OpenAI accounts (already on the Pi for another project), but create a **separate API key per project** for the button box. Group them in an Anthropic Console workspace and an OpenAI project, and set provider-side spend limits there (Anthropic workspace limit, OpenAI project budget). That makes the $30/month cap (7.5) enforceable and the bill traceable.
+
+**Where the nightly job runs:** on the Pi, as a scheduled Python job using the keys above. Generation needs the internet anyway. The Worker only handles Twilio, R2 and timers.
+
+**Data retention:** both providers keep API data for a limited time for abuse monitoring by default, and neither trains on it. True zero retention needs approval from each provider. Only "Zozo", the age range and mood clips are sent.
+
+**Estimated monthly cost:**
+- Claude: ~$3–6
+- OpenAI images: ~$2–6 (about 2 per day)
+- TTS: < $1
+- Speech-to-text: < $0.50
+- Twilio: ~$2–3
+- R2 and Workers: free tier
+
+Total about $10–15/month, under the $30 cap.
+
 ### 7.1 Content generation (cloud AI, nightly)
 - Pre-generates the story (text + text-to-speech), line art, letter vocabulary and audio. The Pi only plays and prints cached files.
 - **Only regenerate what was served.** An unserved story, letter or coloring page carries over unchanged and keeps its "new" LED.
@@ -148,4 +176,4 @@ Each item is a multi-step audio sequence that ends in a print.
 ## 9. Open items
 1. ~~LED driver part selection~~ → decided: Adafruit PCA9685 (#815).
 2. ~~Handset~~ → decided: Native Union POP Phone (USB-C), no hook switch in v1. Still to do: confirm Linux detects it as USB audio (`aplay -l`, `arecord -l`) and check whether its button shows up as an input key (`evtest`).
-3. Cloud services still to choose: relay host (Cloudflare Workers is a natural fit next to R2), AI, text-to-speech, speech-to-text. Archive storage = Cloudflare R2 (decided).
+3. ~~Cloud services~~ → decided (see 7.0). At build time: confirm the current OpenAI image, TTS and transcription model names and prices.
