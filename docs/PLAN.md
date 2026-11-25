@@ -17,7 +17,7 @@ The source of truth for behavior is [SPEC.md](../SPEC.md). This file covers *ord
 | M2 | Audio: dual-output playback, chimes, recording with cap, stop and silence detection, loudness | M0 | done |
 | M3 | Printer: card rendering (letter, weather, mood faces, coloring page) + Brother QL-800 backend | M0 | done |
 | M4 | Local store: SQLite index, settings, content cache, daily state, event and print log, upload outbox | M0 | done |
-| M5 | Interaction engine: the button state machine from SPEC §2–§6 | M1–M4 | |
+| M5 | Interaction engine: the button state machine from SPEC §2–§6 | M1–M4 | done (see docs/ENGINE.md) |
 | M6 | Nightly content pipeline: Claude, OpenAI images and TTS, safety review, approval gate, evergreen fallback, spend tracking | M4 | |
 | M7 | Mood speech-to-text + classification, with offline queue | M4 | |
 | M8 | Cloud: Cloudflare Worker (Twilio IVR + PIN, R2, review timer, SMS, Pi sync API) + Pi sync client | M4 | |
@@ -81,7 +81,7 @@ class Store:  # SQLite at <data_dir>/zozobox.db; media under <data_dir>/media/
 - Fully tested with fakes and a fake clock.
 
 ### M6–M9
-Contracts are written in this file when M5 lands.
+The M6 content contract and the M7 classifier contract are in [ENGINE.md](ENGINE.md).
 
 ## Testing this repo
 ```bash
