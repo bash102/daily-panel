@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zozobox"
+version = "0.1.0"
+description = "Zozo's button box: Raspberry Pi 3 toddler panel"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+pi = [
+  "gpiozero>=2.0",
+  "lgpio",
+  "adafruit-blinka",
+  "adafruit-circuitpython-pca9685",
+]
+dev = ["pytest>=8"]
+
+[project.scripts]
+zozobox-bench = "zozobox.bench:main"
+
+[tool.setuptools.packages.find]
+include = ["zozobox*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
