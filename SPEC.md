@@ -10,8 +10,8 @@ Design principle: every interaction is a single press, and the box must survive 
 | Computer | Raspberry Pi 3 |
 | Buttons | 4 illuminated arcade buttons: red, green, blue, yellow. Wired straight to Pi GPIO using internal pull-ups (no MCP23017). |
 | Button LEDs | Reworked from 12V to 5V (swap or bypass the built-in resistors), PWM dimmed. |
-| LED driver | **Adafruit PCA9685 16-channel 12-bit PWM breakout (#815)**, https://www.adafruit.com/product/815. Talks to the Pi over I2C (address 0x40) using `adafruit-circuitpython-pca9685` via Blinka. Generates its own PWM, so the Pi's 2 hardware PWM channels (shared with the 3.5mm jack) stay free. A breakout rather than a HAT, so the GPIO header stays free for the buttons and hook switch. See the wiring below. |
-| Handset | USB retro phone handset (earpiece + mic in one USB audio device), no hook switch. |
+| LED driver | **Adafruit PCA9685 16-channel 12-bit PWM breakout (#815)**, https://www.adafruit.com/product/815. Talks to the Pi over I2C (address 0x40) using `adafruit-circuitpython-pca9685` via Blinka. Generates its own PWM, so the Pi's 2 hardware PWM channels (shared with the 3.5mm jack) stay free. A breakout rather than a HAT, so the GPIO header stays free for the buttons (and an optional future hook switch). See the wiring below. |
+| Handset | **Native Union POP Phone (USB-C)**, purchased. Earpiece and mic in one USB audio device. Connects to the Pi 3 through a USB-C(female) to USB-A(male) adapter. **No hook switch in v1**: the box can't tell whether the handset is lifted, so speech always plays on both the handset and the box speaker. Its 3.2m coiled cord must be shortened, or held inside the box, to the ≤30cm limit. Its pick-up/hang-up button may show up in Linux as an input key; that's unverified, and if it does it will be ignored or used as a parent shortcut. Optional later upgrade: an Adafruit magnetic contact switch (#375, ~$4) under the handset rest, with a magnet on the handset, on one GPIO input. |
 | Box speaker | Secondary speaker used as speakerphone and for chimes. Likely needs its own USB DAC + 2–3W amp. |
 | Printer | Brother QL-800, continuous 62mm paper (no stickers). Driven with `brother_ql`. |
 | Power | One 5.1V 3–4A supply for the Pi and LED driver; the printer uses its own adapter. Root filesystem runs as an overlay so pulling the plug is safe. |
@@ -147,5 +147,5 @@ Each item is a multi-step audio sequence that ends in a print.
 
 ## 9. Open items
 1. ~~LED driver part selection~~ → decided: Adafruit PCA9685 (#815).
-2. Confirm the handset has no hook switch.
+2. ~~Handset~~ → decided: Native Union POP Phone (USB-C), no hook switch in v1. Still to do: confirm Linux detects it as USB audio (`aplay -l`, `arecord -l`) and check whether its button shows up as an input key (`evtest`).
 3. Cloud services still to choose: relay host (Cloudflare Workers is a natural fit next to R2), AI, text-to-speech, speech-to-text. Archive storage = Cloudflare R2 (decided).
