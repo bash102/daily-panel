@@ -23,9 +23,15 @@ class CardConfig:
     # hardware volume control (the ceiling must then be set in asound.conf).
     mixer_control: str | None = "PCM"
     max_fraction: float = 0.6  # hearing-safe ceiling, 0..1 of mixer range
+    # Named PCM from /etc/asound.conf to play through instead of plughw, e.g.
+    # "zozobox_handset" (deploy/asound.conf: plug -> softvol hard cap -> dmix
+    # -> hw). The mixer ceiling above still applies to `card`.
+    alsa_pcm: str | None = None
 
     @property
     def pcm(self) -> str:
+        if self.alsa_pcm:
+            return self.alsa_pcm
         # plughw: ALSA converts rate/format/channels to whatever the card wants.
         return f"plughw:CARD={self.card},DEV={self.device}"
 

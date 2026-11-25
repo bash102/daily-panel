@@ -982,6 +982,13 @@ class Pipeline:
             "phrases_pending": sorted({it.meta.get("key") for it in c.list(
                 "phrase", approval="pending", include_withheld=False,
                 include_superseded=False, limit=1000)} - {None}),
+            "soundboard": {
+                "servable": len({it.meta.get("key") for it in c.list(
+                    "soundboard", include_withheld=False, include_superseded=False,
+                    limit=1000) if it.servable}),
+                "pending": len(c.list("soundboard", approval="pending", include_withheld=False,
+                                      include_superseded=False, limit=1000)),
+            },
         }
         for k in NIGHTLY_JOBS:
             it = c.current_for_today(k)
@@ -1173,13 +1180,21 @@ def run_nightly(store, clients: Clients, clock: Callable[[], datetime] | None = 
 
 
 def run_bootstrap(store, clients: Clients, clock: Callable[[], datetime] | None = None, *,
-                  config: ContentConfig | None = None, force_phrases: bool = False):
+                  config: ContentConfig | None = None, force_phrases: bool = False,
+                  soundboard: bool = False, force_soundboard: bool = False):
+    """Phrases + evergreen, and (with `soundboard`) the soundboard starter
+    pack (zozobox.content.soundboard: content items, approval-gated)."""
     p = Pipeline(store, clients, clock, config)
     with _run_lock(store.data_dir) as got:
         if not got:
             return {"locked": True}
         p.sweep_orphans()
-        return p.bootstrap(force_phrases=force_phrases)
+        out = p.bootstrap(force_phrases=force_phrases)
+        if soundboard:
+            from .soundboard import bootstrap_soundboard
+
+            out["soundboard"] = bootstrap_soundboard(p, force=force_soundboard)
+        return out
 
 
 def run_weather(store, clients: Clients, clock: Callable[[], datetime] | None = None, *,

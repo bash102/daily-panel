@@ -147,7 +147,7 @@ Total about $10–15/month, under the $30 cap.
 ### 7.3 Archive (cloud is the primary copy)
 - A permanent record of every story, grandma recording, Zozo recording, mood entry and log event, plus a copy of every print (the rendered image).
 - **Cloudflare R2** (the owner's existing account) is the source of truth. The Pi caches recent items and queues uploads while offline.
-- Audio is stored as Opus. The index keeps metadata.
+- Audio is stored as **WAV in v1** (decided at M10). Twilio's `<Play>` cannot play Opus, and grandma's and Zozo's messages must stay playable on the phone line straight from the archive (the Worker cannot transcode). At this volume (short voice clips) the R2 free tier covers years of storage. The index keeps metadata. Revisit only if storage grows well beyond that.
 - Deleting or overwriting only stops publishing. The archive keeps the item with flags and timestamps, including grandma messages he never heard. **Purge permanently** is a separate action that needs confirmation.
 
 ### 7.4 Offline behavior

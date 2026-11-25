@@ -173,6 +173,45 @@ class DirSoundboard:
             return []
 
 
+class StoreSoundboard:
+    """The soundboard the engine process uses: the TTS starter clips from the
+    content store that are servable (approved in the first month, SPEC 7.1),
+    plus every audio file the owner imported into `directory` (no approval:
+    the parent chose them). The legacy `starter/` subdirectory is ignored, so
+    ungated TTS clips from an older bootstrap are never played."""
+
+    IGNORED_SUBDIRS = ("starter",)
+
+    def __init__(self, store, directory: str | Path | None = None):
+        self.store = store
+        self.dir = DirSoundboard(directory) if directory is not None else None
+
+    def clips(self) -> list[Path]:
+        out: list[Path] = []
+        try:
+            seen: set[str] = set()
+            for it in self.store.content.list("soundboard", include_withheld=False,
+                                              include_superseded=False, limit=1000):
+                key = it.meta.get("key") or it.id
+                if not it.servable or key in seen or "audio" not in it.media:
+                    continue
+                p = self.store.media_path(it.media["audio"])
+                if p.is_file():
+                    seen.add(key)  # newest servable take per clip
+                    out.append(p)
+        except Exception:
+            log.exception("soundboard: store lookup failed")
+        if self.dir is not None:
+            for p in self.dir.clips():
+                try:
+                    first = p.relative_to(self.dir.directory).parts[0]
+                except ValueError:
+                    first = ""
+                if first not in self.IGNORED_SUBDIRS:
+                    out.append(p)
+        return sorted(out)
+
+
 class FakeSoundboard:
     def __init__(self, clips: Iterable[str | Path] = ()):
         self._clips = [Path(c) for c in clips]

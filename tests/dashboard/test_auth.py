@@ -389,3 +389,41 @@ def test_password_change_is_throttled_by_reservation(dash, client):
                                            "confirm": "new password 1"}, token=token)
     assert r.status_code == 429
     assert dash.app.state.passwords.verify(PASSWORD)
+
+
+def test_setup_token_gates_the_first_password(tmp_path):
+    from zozobox.dashboard import DashboardConfig, create_app
+
+    from dash_helpers import CSRF_RE, Client, Clock
+    from zozobox.printer import FakePrinter
+    from zozobox.store import Store
+
+    clock = Clock()
+    store = Store(tmp_path / "data", clock=clock)
+    tokfile = tmp_path / "data" / "dashboard-setup-token"
+    tokfile.write_text("s3cret-setup-token-xyz\n")
+    try:
+        app = create_app(store, FakePrinter(), clock=clock.epoch, config=DashboardConfig(
+            scrypt_n=2**10, setup_token="s3cret-setup-token-xyz", setup_token_file=tokfile))
+        c = Client(app)
+        r = c.get("/setup")
+        assert r.status_code == 403 and "setup-token" in r.text
+        assert c.get("/setup?token=wrong").status_code == 403
+        r = c.get("/setup?token=s3cret-setup-token-xyz")
+        assert r.status_code == 200
+        csrf = CSRF_RE.search(r.text).group(1)
+        assert 'value="s3cret-setup-token-xyz"' in r.text
+        # A LAN visitor without the token cannot claim the account.
+        r = c.post("/setup", {"password": PASSWORD, "confirm": PASSWORD,
+                              "setup_token": "nope"}, token=csrf)
+        assert r.status_code == 403 and not app.state.passwords.exists()
+        r = c.post("/setup", {"password": PASSWORD, "confirm": PASSWORD},
+                   token=csrf)
+        assert r.status_code == 403 and not app.state.passwords.exists()
+        r = c.post("/setup", {"password": PASSWORD, "confirm": PASSWORD,
+                              "setup_token": "s3cret-setup-token-xyz"}, token=csrf)
+        assert r.status_code == 303 and app.state.passwords.exists()
+        assert not tokfile.exists()
+        assert c.get("/setup?token=s3cret-setup-token-xyz").headers["location"] == "/login"
+    finally:
+        store.close()

@@ -5,6 +5,8 @@ Install with `pip install -e .[pi]` on the Pi. Enable I2C in raspi-config.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from typing import Callable
 
 from ..config import Btn, ButtonConfig, LedConfig
@@ -14,8 +16,31 @@ MODE2_INVRT = 0x10
 MODE2_OUTDRV = 0x04  # 1 = totem-pole, 0 = open-drain
 
 
+LG_WD_ENV = "LG_WD"
+
+
+def ensure_lg_wd(cwd: str | None = None, env: dict | None = None) -> str | None:
+    """gpiozero's default pin factory on Bookworm (lgpio) creates its
+    notification files in $LG_WD, else the current directory. When that is
+    not writable (e.g. `sudo -u zozobox zozobox-bench` from an admin's home),
+    opening the gpiochip fails. Point LG_WD at a writable directory first.
+    Returns the directory set, or None when nothing needed changing."""
+    env = os.environ if env is None else env
+    if env.get(LG_WD_ENV):
+        return None
+    cwd = cwd or os.getcwd()
+    if os.access(cwd, os.W_OK | os.X_OK):
+        return None
+    for d in (env.get("ZOZOBOX_DATA_DIR"), tempfile.gettempdir()):
+        if d and os.path.isdir(d) and os.access(d, os.W_OK | os.X_OK):
+            env[LG_WD_ENV] = d
+            return d
+    return None
+
+
 class GpioButtonBackend:
     def __init__(self, cfg: ButtonConfig):
+        ensure_lg_wd()  # before lgpio is loaded
         from gpiozero import Button  # lazy: only on the Pi
 
         # bounce_time=None: debouncing is done in ButtonArbiter so it is testable.

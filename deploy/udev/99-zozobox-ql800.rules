@@ -1,0 +1,8 @@
+# Brother QL-800 label printer (USB 04f9:209b; not in brother_ql 0.9.4's list).
+# Lets the zozobox user (member of lp and plugdev) open it through pyusb
+# without root. Installed to /etc/udev/rules.d/ by deploy/install.sh.
+# A device node has a single group; lp is used here. The zozobox user is in
+# both lp and plugdev, so GROUP="plugdev" works too if you prefer it.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="04f9", ATTR{idProduct}=="209b", MODE="0660", GROUP="lp"
+# The usblp printer-class node (/dev/usb/lp*), in case anything uses it.
+SUBSYSTEM=="usbmisc", KERNEL=="lp[0-9]*", ATTRS{idVendor}=="04f9", ATTRS{idProduct}=="209b", MODE="0660", GROUP="lp"

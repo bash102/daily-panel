@@ -1,0 +1,88 @@
+# /etc/zozobox/box.toml - static configuration of this box (PLAN M10).
+# Everything is optional: a missing key keeps the default shown here.
+# Unknown keys are an error, so typos are caught at start-up:
+#     /opt/zozobox/venv/bin/python -m zozobox.app --check-config
+# Runtime settings (quiet hours, volume, recording cap, location...) are on
+# the dashboard, not here. install.sh never overwrites this file.
+
+# data_dir = "/var/lib/zozobox"      # the env var ZOZOBOX_DATA_DIR wins
+
+[buttons]
+# BCM GPIO numbers (SPEC 1, internal pull-ups; one leg to the pin, one to GND).
+# Not 2/3 (I2C, the LED driver) or 14/15 (UART).
+pins = { red = 17, green = 27, blue = 22, yellow = 23 }
+# debounce_s = 0.020
+# lockout_s = 1.0
+# chord = ["red", "yellow"]          # hidden parent gesture (SPEC 3)
+# chord_hold_s = 5.0
+
+[roles]
+# Which colour does what: print | grandma | soundboard | story (each once).
+green = "print"
+red = "grandma"
+yellow = "soundboard"
+blue = "story"
+
+[leds]
+# PCA9685 channel per button LED (cathode on the PWM pin, SPEC 1.1).
+channels = { red = 0, green = 1, blue = 2, yellow = 3 }
+# i2c_address = 0x40
+# Open-drain + inverted: duty cycle == LED on-time. If brightness comes out
+# backwards in bring-up (bright when it should be dim), flip invert.
+invert = true
+# open_drain = true
+# pwm_hz = 1000
+# max_brightness = 1.0
+# dim_level = 0.06
+# trim = { red = 1.0, green = 1.0, blue = 1.0, yellow = 1.0 }   # per-colour balance
+
+[audio]
+# default_volume = 0.7               # until the dashboard sets one
+
+[audio.handset]
+# The POP Phone. card = the [short name] from `aplay -l`.
+card = "Phone"
+# device = 0
+# Mixer control from `amixer -c Phone scontrols`; "none" = no hardware control.
+mixer_control = "PCM"
+# Hearing-safe ceiling (fraction of the mixer range). CALIBRATE (docs/BRINGUP.md).
+max_fraction = 0.5
+# Play through the softvol hard cap in /etc/asound.conf (recommended).
+alsa_pcm = "zozobox_handset"
+
+[audio.speaker]
+card = "Device"
+mixer_control = "PCM"
+max_fraction = 0.7
+alsa_pcm = "zozobox_speaker"
+
+[audio.mic]
+card = "Phone"
+mixer_control = "Mic"
+# capture_fraction = 0.8
+# Silence detection: speech is RMS above speech_dbfs for at least min_speech_s.
+# speech_dbfs = -40.0
+# min_speech_s = 0.3
+
+[printer]
+# brother_ql identifier. The QL-800 is USB 04f9:209b.
+# identifier = "usb://0x04f9:0x209b"
+# model = "QL-800"
+# label = "62"                       # DK-22205 62 mm continuous
+
+[engine]
+# Engine tunables (docs/ENGINE.md). click/beep default to the generated
+# chimes in <data_dir>/chimes/.
+# repeat_pause_s = 3.0
+# mood_record_s = 8.0
+# recent_clips = 5
+
+[app]
+# Run by the parent chord. deploy/sudoers/zozobox-poweroff allows exactly this.
+# shutdown_command = ["sudo", "-n", "/usr/bin/systemctl", "poweroff"]
+# printer_retry_s = 60.0
+# printer_lock_timeout_s = 30.0   # a reprint waits this long for the engine's print
+# hw_retry_s = 30.0               # buttons / LEDs that failed at start-up are retried
+# soundboard_dir = "/var/lib/zozobox/soundboard"
+# phrases_dir = "/var/lib/zozobox/assets/phrases"   # fallback <phrase>.wav files
+# log_level = "INFO"

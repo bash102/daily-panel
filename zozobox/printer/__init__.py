@@ -10,6 +10,14 @@ from .backend import (
     prepare,
     send_instructions,
 )
+from .locked import (
+    LockedPrinter,
+    SupervisedPrinter,
+    brother_factory,
+    file_lock,
+    lock_path,
+    make_locked_brother,
+)
 from .drawings import MOODS, WEATHER_ICONS, normalize_icon
 from .render import (
     WIDTH_PX,
@@ -36,4 +44,10 @@ __all__ = [
     "DEFAULT_IDENTIFIER",
     "prepare",
     "send_instructions",
+    "LockedPrinter",
+    "SupervisedPrinter",
+    "brother_factory",
+    "file_lock",
+    "lock_path",
+    "make_locked_brother",
 ]

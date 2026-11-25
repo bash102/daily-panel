@@ -45,6 +45,7 @@ class Kind(str, Enum):
     WEATHER = "weather"
     COLORING = "coloring"
     PHRASE = "phrase"
+    SOUNDBOARD = "soundboard"  # TTS starter clips (zozobox.content.soundboard)
 
 
 class Safety(str, Enum):

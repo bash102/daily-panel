@@ -61,7 +61,7 @@ The response is ordered oldest first (newest last), up to `limit` messages: the 
 
 The audio is 8 kHz WAV as Twilio recorded it. Download it with `GET /api/objects/<key>`.
 
-**Archive format (deviation from SPEC 7.3, "Audio is stored as Opus").** The archive keeps voice audio as WAV: grandma's as Twilio's 8 kHz original (`audio/wav`), Zozo's as the engine saves it. Reasons: the worker cannot transcode (no ffmpeg in Workers), Twilio's `<Play>` needs a format it plays (WAV/MP3, not Opus), the engine writes WAV for Zozo too, and the messages are short (about 16 KB per second at 8 kHz), so storage cost is negligible. Turning this into Opus would be a project-wide change: an Opus copy made on the Pi and uploaded under a new prefix, plus MP3/WAV for playback on the phone. The SPEC owner should either accept WAV or schedule that change.
+**Archive format (SPEC 7.3: WAV in v1).** The archive keeps voice audio as WAV: grandma's as Twilio's 8 kHz original (`audio/wav`), Zozo's as the engine saves it. Twilio's `<Play>` cannot play Opus, the worker cannot transcode (there is no ffmpeg in Workers), and the messages are short, so storage stays well within R2's free tier.
 
 ### `GET /api/zozo/messages`
 The worker's view of Zozo's replies, at most the last 50:

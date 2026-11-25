@@ -131,9 +131,18 @@ SETUP = r"""{% extends "base.html" %}{% block body %}
 <p>Choose the parent password for this dashboard. You'll need it on every device.</p>
 {% if error %}<div class="flash bad">{{ error }}</div>{% endif %}
 <form method="post" action="/setup">""" + CSRF + r"""
+<input type="hidden" name="setup_token" value="{{ setup_token or '' }}">
 <label for="pw">Password</label><input id="pw" type="password" name="password" autocomplete="new-password" required minlength="8">
 <label for="pw2">Repeat it</label><input id="pw2" type="password" name="confirm" autocomplete="new-password" required minlength="8">
 <p><button class="primary">Set password</button></p></form></div>
+{% endblock %}"""
+
+SETUP_LOCKED = r"""{% extends "base.html" %}{% block body %}
+<div class="login card"><h1>Welcome</h1>
+<p>Setting the first parent password needs the setup link. On the box, run
+<code>sudo cat /var/lib/zozobox/dashboard-setup-token</code> (or look in
+<code>journalctl -u zozobox-dashboard</code>) and open
+<code>/setup?token=&lt;token&gt;</code> on this address.</p></div>
 {% endblock %}"""
 
 LOGIN = r"""{% extends "base.html" %}{% block body %}
@@ -363,6 +372,7 @@ TEMPLATES: dict[str, str] = {
     "setup.html": SETUP,
     "login.html": LOGIN,
     "home.html": HOME,
+    "setup_locked.html": SETUP_LOCKED,
     "approvals.html": APPROVALS,
     "archive.html": ARCHIVE,
     "item.html": ITEM,

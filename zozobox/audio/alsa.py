@@ -9,8 +9,8 @@ Hearing safety (SPEC section 5): the mixer ceiling is re-applied before a card
 is used whenever the last apply failed or the card looked like it dropped out
 (aplay failed to start or exited non-zero), and by default a card whose ceiling
 cannot be confirmed is not played on. This is best effort: the real backstop
-is a `softvol` hard cap in /etc/asound.conf, which M10 must install (M10
-checklist item: "asound.conf softvol max_dB cap on handset and speaker").
+is a `softvol` hard cap in /etc/asound.conf (deploy/asound.conf, installed by
+deploy/install.sh; point CardConfig.alsa_pcm at its PCMs).
 """
 
 from __future__ import annotations

@@ -22,8 +22,8 @@ The source of truth for behavior is [SPEC.md](../SPEC.md). This file covers *ord
 | M7 | Mood speech-to-text + classification, with offline queue | M4 | done |
 | M8 | Cloud: Cloudflare Worker (Twilio IVR + PIN, R2, review timer, SMS, Pi sync API) + Pi sync client | M4 | done |
 | M9 | Parent dashboard (FastAPI): settings, approvals, archive, mood log, stats, reprint, review/delete, spend | M4, M5 | done |
-| M10 | App wiring (`zozobox.app`), systemd units, ALSA config, install script, read-only root, Tailscale notes | all | |
-| M11 | Hardware bring-up and end-to-end test on the real box (owner) | M10 | |
+| M10 | App wiring (`zozobox.app`), systemd units, ALSA config, install script, read-only root, Tailscale notes | all | done (see docs/DEPLOY.md) |
+| M11 | Hardware bring-up and end-to-end test on the real box (owner) | M10 | pending (owner; checklist in docs/BRINGUP.md) |
 
 **Sequence:**
 1. M0 → M1.
@@ -87,19 +87,21 @@ The M6 content contract and the M7 classifier contract are in [ENGINE.md](ENGINE
 ```bash
 python -m pytest
 python -m zozobox.bench leds --fake --hold 0.05
+python -m zozobox.app --fake            # engine with fake hardware; r/g/b/y + Enter
 ```
-On the Pi: `pip install -e .[pi]`, then `zozobox-bench leds` and `zozobox-bench buttons`.
+On the Pi: `deploy/install.sh` (docs/DEPLOY.md), then `zozobox-bench leds`, `buttons`, `audio` and `print` (docs/BRINGUP.md).
 
 ## Hardware notes from M2–M4 (check during M11 bring-up)
 **Audio**
-- ALSA card names and mixer controls are placeholders. The handset is `Phone`, the speaker DAC is `Device`, and the controls are `PCM` and `Mic`. Confirm them with `aplay -l`, `arecord -l` and `amixer -c CARD scontrols`, then set them in `zozobox/audio/config.py`.
+- ALSA card names and mixer controls are placeholders. The handset is `Phone`, the speaker DAC is `Device`, and the controls are `PCM` and `Mic`. Confirm them with `aplay -l`, `arecord -l` and `amixer -c CARD scontrols`, then set them in `/etc/zozobox/box.toml` (`[audio.*]`, see deploy/box.toml.example).
 - The volume ceilings (`max_fraction`) are placeholders: handset 0.5, speaker 0.7. Calibrate them with a sound level meter to about 75–80 dBA. M10 also installs an `asound.conf` softvol cap as the backstop.
 - If a ceiling can't be applied, that output refuses to play (`refuse_uncapped=True`). This is deliberate: a wrong control name means silence, not loud audio.
 - Production wiring is `create_alsa_audio()`, which mutes the speaker while recording.
+- M10 installed `deploy/asound.conf` (softvol hard cap + dmix per output). `box.toml` points `[audio.handset|speaker].alsa_pcm` at it. Card names in both files are still placeholders.
 
 **Printer**
 - `brother_ql==0.9.4` (pip) and `libusb-1.0-0` (apt).
-- Add a udev rule for USB device `04f9:209b`. The QL-800 product ID comes from Brother's USB IDs and isn't in brother_ql's device list.
+- Add a udev rule for USB device `04f9:209b`. The QL-800 product ID comes from Brother's USB IDs and isn't in brother_ql's device list. (M10: `deploy/udev/99-zozobox-ql800.rules`.)
 - Turn off the QL-800's Editor Lite mode (hold its button until the light goes out).
 
 **Store**
@@ -108,6 +110,16 @@ On the Pi: `pip install -e .[pi]`, then `zozobox-bench leds` and `zozobox-bench 
 
 ## Notes from M6–M9
 - **First-month approval covers everything**, including the 16 fixed phrases and the evergreen copies. Until a parent approves the phrase items on the dashboard, the box plays no spoken phrases (clicks and beeps still work). Approve them right after bootstrap.
-- **Audio is archived as WAV, but SPEC 7.3 says Opus.** Converting to Opus before upload is an M10 follow-up.
+- **Archive audio is WAV** (SPEC 7.3, decided at M10).
 - **Content `status()`** reports `phrases_pending`. Weather items may carry `meta.source="template"` when Claude is unavailable twice.
 - **The Worker's quiet-hours pause** is mirrored in the dashboard's review-countdown display. The DST edge cases are covered by unit tests only.
+
+## Notes from M10
+- **`python -m zozobox.app`** (console script `zozobox-engine`) is the engine process. Static config comes from `/etc/zozobox/box.toml` (`zozobox/boxconfig.py`, template `deploy/box.toml.example`). Unknown keys are errors; check with `--check-config`. `--fake` runs everything with fakes.
+- **Hardware is optional at runtime.** A part that fails to start is logged and replaced by an inert stand-in, and an `error` event `hw_init_failed` is recorded. Buttons and LEDs are retried every 30 s (`zozobox/hw/supervised.py`, `[app].hw_retry_s`; a `hw_recovered` event when they come up), the printer every 60 s (`SupervisedPrinter`). The store is the one hard requirement. A `box.toml` error exits 2, and the engine and dashboard units don't restart on it (`RestartPreventExitStatus=2`).
+- **Dashboard first-run setup** needs a one-time token (`<data dir>/dashboard-setup-token`, also in the journal), so nobody else on the LAN can choose the parent password. The dashboard reads `box.toml` for reprints (`[printer]`, `[app].printer_*`).
+- **Sync refuses placeholder or non-https cloud settings** (`check_cloud_config`), so the box token is never sent to a template host.
+- **One printer lock for both processes.** The engine and the dashboard (`--printer brother`) print through `LockedPrinter`, an `fcntl` lock on `<data dir>/.printer.lock`. A lock busy for more than 30 s fails that print with `PrinterError` ("printer busy").
+- **Parent chord.** It plays a network-status chime (two beeps if a sync pass reached the cloud in the last 5 minutes, one if not), blinks the LEDs, then runs `sudo -n /usr/bin/systemctl poweroff`. `deploy/sudoers/zozobox-poweroff` allows only that command. As a result the engine unit cannot use `NoNewPrivileges` or any option that implies it. docs/DEPLOY.md describes a polkit alternative.
+- **Bundled assets.** The click and beep are generated deterministically (`zozobox/assets.py`) into `<data dir>/chimes/` at start-up. The bootstrap step TTS-generates the soundboard starter pack, 16 hand-reviewed clips in `zozobox/content/soundboard.py`, as content items of kind `soundboard` (media `soundboard/<slug>-<id>.wav`). Like the phrases they need first-month approval; the engine's `StoreSoundboard` plays only servable ones. `zozobox-import-clip` adds owner-chosen CC0 clips to `[app].soundboard_dir` (no approval). The TTS pack stands in for SPEC 2.3's bundled CC0 pack, which can't be redistributed from the repo. Fallback phrase WAVs can be dropped into `<data dir>/assets/phrases/<name>.wav`.
+- **Integration tests** (`tests/integration/`) run a whole simulated day against an in-process fake worker over localhost HTTP, and start `python -m zozobox.app --fake` as a real process to check a clean SIGTERM/SIGINT shutdown.

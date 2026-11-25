@@ -1,0 +1,40 @@
+# One-time (re-runnable) content bootstrap: fixed phrases, evergreen fallback
+# content and the soundboard starter pack. Not enabled; run it by hand:
+#   sudo systemctl start zozobox-bootstrap && journalctl -u zozobox-bootstrap
+# Then approve the phrases on the dashboard (first-month approval, SPEC 7.1).
+[Unit]
+Description=Zozo box content bootstrap (phrases, evergreen, soundboard)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/var/lib/zozobox
+
+[Service]
+Type=oneshot
+User=zozobox
+Group=zozobox
+EnvironmentFile=/etc/zozobox/secrets.env
+Environment=ZOZOBOX_DATA_DIR=/var/lib/zozobox
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/zozobox
+ExecStart=/opt/zozobox/venv/bin/python -m zozobox.content bootstrap
+TimeoutStartSec=2h
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zozobox-bootstrap
+UMask=0007
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/zozobox
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=

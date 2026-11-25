@@ -1,0 +1,13 @@
+# Around 02:30 box-local time (set the Pi's timezone to the box's: timedatectl).
+[Unit]
+Description=Zozo box nightly content generation, ~02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+RandomizedDelaySec=20min
+# A run missed while the box was off happens soon after boot.
+Persistent=true
+Unit=zozobox-nightly.service
+
+[Install]
+WantedBy=timers.target

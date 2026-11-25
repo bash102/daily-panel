@@ -94,6 +94,12 @@ class DashboardConfig:
     scrypt_n: int = SCRYPT_N
     archive_page_size: int = 200
     max_concurrent_kdf: int = 2              # scrypt calls at once (~16 MiB each)
+    # When set, /setup (choosing the first parent password) needs this token
+    # (?token=... or the form field), so nobody else on the LAN can claim the
+    # dashboard before the parent does. The CLI generates one (see
+    # zozobox.dashboard.__main__); None = open setup (tests, local dev).
+    setup_token: str | None = None
+    setup_token_file: Path | None = None     # removed once the password is set
 
 
 class _NeedAuth(Exception):
@@ -367,23 +373,42 @@ def create_app(
         return {"ok": True}
 
     # -- setup / login / logout -----------------------------------------------------
+    def _setup_token_ok(token: str) -> bool:
+        if not cfg.setup_token:
+            return True
+        return hmac.compare_digest(token.encode(), cfg.setup_token.encode())
+
+    def _setup_locked(request: Request):
+        return render(request, "setup_locked.html", 403, title="Set up")
+
     @app.get("/setup")
-    def setup_page(request: Request):
+    def setup_page(request: Request, token: str = ""):
         if pw.exists():
             return redirect("/login")
-        return render(request, "setup.html", title="Set up")
+        if not _setup_token_ok(token):
+            return _setup_locked(request)
+        return render(request, "setup.html", title="Set up", setup_token=token)
 
     @app.post("/setup")
     def setup_submit(request: Request, _c: Session = Depends(csrf_ok),
-                     password: str = Form(""), confirm: str = Form("")):
+                     password: str = Form(""), confirm: str = Form(""),
+                     setup_token: str = Form("")):
         if pw.exists():
             return redirect("/login")
+        if not _setup_token_ok(setup_token):
+            return _setup_locked(request)
         err = check_new_password(password, confirm)
         if err:
-            return render(request, "setup.html", 400, title="Set up", error=err)
+            return render(request, "setup.html", 400, title="Set up", error=err,
+                          setup_token=setup_token)
         if not kdf(pw.create, password):
             return redirect("/login")
         log.info("dashboard: parent password set")
+        if cfg.setup_token_file is not None:
+            try:
+                cfg.setup_token_file.unlink(missing_ok=True)
+            except OSError:
+                log.warning("dashboard: could not remove %s", cfg.setup_token_file)
         start_session(request, auth=True)
         return redirect("/")
 
@@ -682,7 +707,7 @@ def withhold_recording(store: Store, rec_id: str):
 
 
 def reprint_event(store: Store, printer: Any, event_id: int, *, force: bool = False,
-                  lock: threading.Lock | None = None) -> str:
+                  lock: "threading.Lock | None" = None) -> str:
     """Reprint the archived PNG of a print event. Returns a FLASH code.
     Reprints never touch daily print state; the reprint is archived as its
     own print event (reprint=True)."""

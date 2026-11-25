@@ -84,3 +84,25 @@ def test_close_turns_everything_off():
 def test_mode2_open_drain_inverted():
     assert mode2_value(open_drain=True, invert=True) == 0x10
     assert mode2_value(open_drain=False, invert=False) == 0x04
+
+
+
+def test_ensure_lg_wd_points_lgpio_at_a_writable_dir(tmp_path, monkeypatch):
+    import os
+
+    import zozobox.hw.pi as pi
+
+    home = tmp_path / "home"   # the admin's 0700 home, unwritable for zozobox
+    data = tmp_path / "data"
+    home.mkdir()
+    data.mkdir()
+    real = os.access
+    monkeypatch.setattr(pi.os, "access",
+                        lambda p, m: False if str(p) == str(home) else real(p, m))
+    env = {"ZOZOBOX_DATA_DIR": str(data)}
+    assert pi.ensure_lg_wd(str(home), env) == str(data) and env["LG_WD"] == str(data)
+    env = {}
+    assert pi.ensure_lg_wd(str(home), env) == env["LG_WD"]  # falls back to the temp dir
+    assert pi.ensure_lg_wd(str(tmp_path), {}) is None  # writable cwd: leave it alone
+    env = {"LG_WD": "/somewhere"}
+    assert pi.ensure_lg_wd(str(home), env) is None and env["LG_WD"] == "/somewhere"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Zozo box offline mood recognition, hourly
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Unit=zozobox-mood-reprocess.service
+
+[Install]
+WantedBy=timers.target

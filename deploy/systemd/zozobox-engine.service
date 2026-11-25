@@ -1,0 +1,55 @@
+# Zozo box engine: buttons, LEDs, audio, printer, the interaction engine.
+# python -m zozobox.app (PLAN M10). Installed by deploy/install.sh.
+[Unit]
+Description=Zozo box engine (buttons, LEDs, audio, printer)
+Documentation=file:///opt/zozobox/src/docs/DEPLOY.md
+After=sound.target local-fs.target time-sync.target
+# time-sync.target only waits for a real NTP sync when
+# systemd-time-wait-sync.service is enabled; offline it never blocks the
+# start. See docs/DEPLOY.md (step 9) for the clock under the read-only root.
+# The data dir must be mounted (persistent partition, docs/DEPLOY.md).
+RequiresMountsFor=/var/lib/zozobox
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=zozobox
+Group=zozobox
+SupplementaryGroups=gpio i2c audio lp plugdev
+EnvironmentFile=/etc/zozobox/secrets.env
+Environment=ZOZOBOX_DATA_DIR=/var/lib/zozobox
+Environment=ZOZOBOX_CONFIG=/etc/zozobox/box.toml
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/zozobox
+ExecStart=/opt/zozobox/venv/bin/python -m zozobox.app
+Restart=always
+RestartSec=3
+# Exit 2 = box.toml error (bad key, pin used twice, ...): retrying cannot help,
+# so the unit stays failed until the file is fixed and the unit restarted.
+RestartPreventExitStatus=2
+# close() waits up to 15 s for a print job / a grandma reply being saved.
+TimeoutStopSec=30
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zozobox-engine
+UMask=0007
+
+# Hardening. NOT NoNewPrivileges: the parent chord runs
+# `sudo -n /usr/bin/systemctl poweroff` (deploy/sudoers/zozobox-poweroff), and
+# sudo is setuid. For the same reason this unit avoids every option that
+# implies NoNewPrivileges for a non-root User= (SystemCallFilter,
+# SystemCallArchitectures, RestrictAddressFamilies, RestrictNamespaces,
+# PrivateDevices, ProtectKernelTunables/Modules/Logs, ProtectClock,
+# MemoryDenyWriteExecute, RestrictRealtime, RestrictSUIDSGID, LockPersonality).
+# It also needs the real /dev (gpiochip, i2c-1, snd, USB printer).
+# ProtectSystem=full (not strict) keeps /var and /run writable for sudo.
+# Alternative without sudo: a polkit rule (docs/DEPLOY.md) and then
+# NoNewPrivileges=yes plus the options above.
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/zozobox
+
+[Install]
+WantedBy=multi-user.target

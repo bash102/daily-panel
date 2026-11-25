@@ -4,12 +4,14 @@ Drains the upload outbox to the cloud worker, pushes config changes and
 imports grandma's new messages (docs/SYNC.md).
 
 Environment:
-    ZOZOBOX_CLOUD_URL   worker base URL, e.g. https://zozobox.example.workers.dev
+    ZOZOBOX_CLOUD_URL   worker base URL (its PUBLIC_BASE_URL), https:// only;
+                        plain http only for localhost (tests/development)
     ZOZOBOX_BOX_TOKEN   bearer token (the worker's BOX_TOKEN secret)
     ZOZOBOX_DATA_DIR    store location (default /var/lib/zozobox)
 
 This must be the only process that opens the store with recover_outbox=True.
-Exit codes: 0 ok, 1 usage/config/store error, 2 `once` finished with errors
+Exit codes: 0 ok, 1 usage/config/store error (missing, placeholder or
+non-https cloud settings), 2 `once` finished with errors
 (offline or rejected uploads; they stay queued).
 """
 
@@ -27,6 +29,33 @@ CLOUD_URL_ENV = "ZOZOBOX_CLOUD_URL"
 TOKEN_ENV = "ZOZOBOX_BOX_TOKEN"
 DATA_DIR_ENV = "ZOZOBOX_DATA_DIR"
 DEFAULT_DATA_DIR = "/var/lib/zozobox"
+
+
+PLACEHOLDERS = ("replace-me", "example.workers.dev", "<", ">")
+
+
+def check_cloud_config(url: str, token: str) -> str | None:
+    """Why the cloud settings are unusable (None = fine). The box token is
+    only ever sent to a real https worker URL, never to a template value."""
+    if not url or not token:
+        return f"set {CLOUD_URL_ENV} and {TOKEN_ENV}"
+    for name, val in ((CLOUD_URL_ENV, url), (TOKEN_ENV, token)):
+        if any(p in val.lower() for p in PLACEHOLDERS):
+            return f"{name} is still a placeholder (edit /etc/zozobox/secrets.env)"
+    from urllib.parse import urlsplit
+
+    try:
+        u = urlsplit(url)
+        host = u.hostname or ""
+    except ValueError:
+        return f"{CLOUD_URL_ENV} is not a valid URL"
+    if not host or u.username or u.password:
+        return f"{CLOUD_URL_ENV} is not a valid URL"
+    if u.scheme == "https":
+        return None
+    if u.scheme == "http" and host in ("localhost", "127.0.0.1", "::1"):
+        return None
+    return f"{CLOUD_URL_ENV} must be an https:// URL"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -52,8 +81,9 @@ def main(
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     url = os.environ.get(CLOUD_URL_ENV, "").strip()
     token = os.environ.get(TOKEN_ENV, "").strip()
-    if not url or not token:
-        print(f"error: set {CLOUD_URL_ENV} and {TOKEN_ENV}", file=sys.stderr)
+    problem = check_cloud_config(url, token)
+    if problem:
+        print(f"error: {problem}", file=sys.stderr)
         return 1
 
     if make_store is None:

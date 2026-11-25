@@ -1,0 +1,45 @@
+# Nightly content run (SPEC 7.1, PLAN M6): story, letter, weather, coloring.
+# Started by zozobox-nightly.timer; `systemctl start zozobox-nightly` runs it now.
+[Unit]
+Description=Zozo box nightly content generation
+Documentation=file:///opt/zozobox/src/docs/DEPLOY.md
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/var/lib/zozobox
+
+[Service]
+Type=oneshot
+User=zozobox
+Group=zozobox
+EnvironmentFile=/etc/zozobox/secrets.env
+Environment=ZOZOBOX_DATA_DIR=/var/lib/zozobox
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/zozobox
+ExecStart=/opt/zozobox/venv/bin/python -m zozobox.content nightly
+# Exit 1 = some job failed (flagged on the dashboard): the unit shows failed.
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zozobox-nightly
+UMask=0007
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/var/lib/zozobox
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=

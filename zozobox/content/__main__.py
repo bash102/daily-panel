@@ -1,6 +1,8 @@
 """CLI: python -m zozobox.content {nightly,bootstrap,weather,status}
 
     --data-dir DIR   store location (default $ZOZOBOX_DATA_DIR or /var/lib/zozobox)
+    bootstrap also TTS-generates the soundboard starter clips as content items
+    (approval-gated like the phrases; --no-soundboard skips them).
 
 Exit status: 0 when every job ended generated/skipped/fallback (or status
 ran), 1 when some job failed, timed out or hit the spend cap, 2 on usage or
@@ -35,6 +37,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--data-dir", default=os.environ.get("ZOZOBOX_DATA_DIR", DEFAULT_DATA_DIR))
     ap.add_argument("--force", action="store_true",
                     help="weather: refresh even if today's exists; bootstrap: redo phrases")
+    ap.add_argument("--no-soundboard", action="store_true",
+                    help="bootstrap: skip the soundboard starter pack")
+    ap.add_argument("--force-soundboard", action="store_true",
+                    help="bootstrap: regenerate the soundboard starter clips")
     ap.add_argument("--job", action="append", choices=["weather", "story", "letter", "coloring"],
                     help="nightly: run only these jobs (repeatable)")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -60,7 +66,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = ContentConfig.from_env()
         clients = Clients.from_env(config)
         if args.command == "bootstrap":
-            out = run_bootstrap(store, clients, config=config, force_phrases=args.force)
+            out = run_bootstrap(store, clients, config=config, force_phrases=args.force,
+                                soundboard=not args.no_soundboard,
+                                force_soundboard=args.force_soundboard)
         elif args.command == "weather":
             out = Pipeline(store, clients, config=config).run_nightly(
                 jobs=("weather",), force_weather=args.force)

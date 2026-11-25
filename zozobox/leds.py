@@ -109,6 +109,12 @@ class LedController:
         with self._lock:
             return self._state[button][0]
 
+    def invalidate(self) -> None:
+        """Forget what was written, so the next render rewrites every channel
+        (after the LED driver came back)."""
+        with self._lock:
+            self._written = {b: None for b in self.cfg.channels}
+
     def render(self) -> None:
         t = self.clock()
         with self._lock:

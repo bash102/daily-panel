@@ -1,0 +1,5 @@
+# /etc/sudoers.d/zozobox-poweroff (mode 0440, installed by deploy/install.sh)
+# The parent chord (red + yellow held 5 s) shuts the box down safely
+# (SPEC 3). This allows exactly that one command, with exactly these
+# arguments, for the zozobox service user. Nothing else.
+zozobox ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff

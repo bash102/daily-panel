@@ -28,6 +28,8 @@ eng.close()             # cancel, then wait (<= close_join_s) for print jobs / l
 eng.busy                 # an experience is running
 ```
 
+Production wiring is `zozobox/app.py` (`python -m zozobox.app`, PLAN M10). It builds the real backends from `/etc/zozobox/box.toml`, uses `StorePhraseBook` with a `DirPhraseBook(<data dir>/assets/phrases)` fallback and `StoreSoundboard(store, <data dir>/soundboard)` (approved TTS starter clips from the content store plus the owner's imported clips; the legacy `starter/` subdirectory is ignored), and passes the generated chimes as `click` and `beep`.
+
 `handle()` and `tick()` must be called from one thread (the `run` loop does this, and they also hold a lock). They never raise.
 
 `close()` stops the loop and cancels the running experience (a grandma reply is saved). It then waits up to `close_join_s` for helper threads that still write to the store: print jobs that kept running after a switch-away, and late grandma saves. Call it before `store.close()`.

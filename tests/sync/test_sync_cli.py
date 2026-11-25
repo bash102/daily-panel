@@ -80,3 +80,33 @@ def test_default_normalizer_without_ffmpeg(monkeypatch):
     assert default_normalizer() is None
     monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/ffmpeg")
     assert callable(default_normalizer())
+
+
+@pytest.mark.parametrize("url,token", [
+    ("replace-me", TOKEN),
+    ("https://zozobox.example.workers.dev", TOKEN),
+    ("https://<worker host>", TOKEN),
+    ("http://cloud.test", TOKEN),            # never send the token in clear text
+    ("ftp://cloud.test", TOKEN),
+    ("https://", TOKEN),
+    ("cloud.test", TOKEN),
+    ("https://user:pw@cloud.test", TOKEN),
+    ("https://cloud.test", "replace-me"),
+])
+def test_placeholder_or_unsafe_cloud_settings_exit_one(monkeypatch, tmp_path, capsys, url, token):
+    monkeypatch.setenv("ZOZOBOX_CLOUD_URL", url)
+    monkeypatch.setenv("ZOZOBOX_BOX_TOKEN", token)
+    called = []
+    rc = main(["once", "--data-dir", str(tmp_path)],
+              make_store=lambda d: called.append(d), make_client=lambda *a: called.append(a))
+    assert rc == 1 and called == []
+    err = capsys.readouterr().err
+    assert "ZOZOBOX_" in err and TOKEN not in err
+
+
+def test_check_cloud_config_accepts_https_and_local_http():
+    from zozobox.sync.__main__ import check_cloud_config
+
+    assert check_cloud_config("https://zozobox.someone.workers.dev", TOKEN) is None
+    assert check_cloud_config("http://127.0.0.1:8787", TOKEN) is None
+    assert check_cloud_config("http://localhost:8787/", TOKEN) is None
