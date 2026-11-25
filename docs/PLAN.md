@@ -18,10 +18,10 @@ The source of truth for behavior is [SPEC.md](../SPEC.md). This file covers *ord
 | M3 | Printer: card rendering (letter, weather, mood faces, coloring page) + Brother QL-800 backend | M0 | done |
 | M4 | Local store: SQLite index, settings, content cache, daily state, event and print log, upload outbox | M0 | done |
 | M5 | Interaction engine: the button state machine from SPEC §2–§6 | M1–M4 | done (see docs/ENGINE.md) |
-| M6 | Nightly content pipeline: Claude, OpenAI images and TTS, safety review, approval gate, evergreen fallback, spend tracking | M4 | |
-| M7 | Mood speech-to-text + classification, with offline queue | M4 | |
-| M8 | Cloud: Cloudflare Worker (Twilio IVR + PIN, R2, review timer, SMS, Pi sync API) + Pi sync client | M4 | |
-| M9 | Parent dashboard (FastAPI): settings, approvals, archive, mood log, stats, reprint, review/delete, spend | M4, M5 | |
+| M6 | Nightly content pipeline: Claude, OpenAI images and TTS, safety review, approval gate, evergreen fallback, spend tracking | M4 | done |
+| M7 | Mood speech-to-text + classification, with offline queue | M4 | done |
+| M8 | Cloud: Cloudflare Worker (Twilio IVR + PIN, R2, review timer, SMS, Pi sync API) + Pi sync client | M4 | done |
+| M9 | Parent dashboard (FastAPI): settings, approvals, archive, mood log, stats, reprint, review/delete, spend | M4, M5 | done |
 | M10 | App wiring (`zozobox.app`), systemd units, ALSA config, install script, read-only root, Tailscale notes | all | |
 | M11 | Hardware bring-up and end-to-end test on the real box (owner) | M10 | |
 
@@ -105,3 +105,9 @@ On the Pi: `pip install -e .[pi]`, then `zozobox-bench leds` and `zozobox-bench 
 **Store**
 - The database and media must live on the persistent data partition, not the read-only overlay root.
 - Only the sync process opens the store with `recover_outbox=True`.
+
+## Notes from M6–M9
+- **First-month approval covers everything**, including the 16 fixed phrases and the evergreen copies. Until a parent approves the phrase items on the dashboard, the box plays no spoken phrases (clicks and beeps still work). Approve them right after bootstrap.
+- **Audio is archived as WAV, but SPEC 7.3 says Opus.** Converting to Opus before upload is an M10 follow-up.
+- **Content `status()`** reports `phrases_pending`. Weather items may carry `meta.source="template"` when Claude is unavailable twice.
+- **The Worker's quiet-hours pause** is mirrored in the dashboard's review-countdown display. The DST edge cases are covered by unit tests only.

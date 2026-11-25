@@ -1,0 +1,22 @@
+{
+  "name": "zozobox-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zozo's button box cloud: Twilio grandma line, review timer, SMS, R2 archive and Pi sync API",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate:local": "wrangler d1 migrations apply zozobox --local",
+    "migrate:remote": "wrangler d1 migrations apply zozobox --remote"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.0",
+    "wrangler": "^4.50.0"
+  }
+}

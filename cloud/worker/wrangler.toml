@@ -1,0 +1,28 @@
+# Zozo's button box cloud worker. Placeholders only: no secrets in this file.
+# Secrets are set with `wrangler secret put <NAME>` (see README.md).
+name = "zozobox"
+main = "src/index.ts"
+compatibility_date = "2025-11-01"
+
+[vars]
+# Public https origin of this worker, exactly as configured in Twilio's webhooks
+# (used to validate X-Twilio-Signature and to build <Play> media URLs).
+PUBLIC_BASE_URL = "https://zozobox.example.workers.dev"
+# TWILIO_VOICE = "Polly.Joanna"
+# GLOBAL_PIN_FAILURE_LIMIT = "10"
+
+[[r2_buckets]]
+binding = "ARCHIVE"
+bucket_name = "zozobox-archive"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zozobox"
+database_id = "00000000-0000-0000-0000-000000000000" # replace with the id from `wrangler d1 create zozobox`
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[observability]
+enabled = true

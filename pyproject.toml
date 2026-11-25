@@ -16,8 +16,15 @@ pi = [
   "adafruit-blinka",
   "adafruit-circuitpython-pca9685",
   "brother_ql==0.9.4",
+  "anthropic>=2.14",
+  "openai>=3.59",
+  "fastapi",
+  "jinja2",
+  "uvicorn",
+  "python-multipart",
+  "Pillow",
 ]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "httpx", "fastapi", "jinja2", "python-multipart", "Pillow"]
 
 [project.scripts]
 zozobox-bench = "zozobox.bench:main"
