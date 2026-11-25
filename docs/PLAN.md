@@ -14,9 +14,9 @@ The source of truth for behavior is [SPEC.md](../SPEC.md). This file covers *ord
 |---|---|---|---|
 | M0 | Repo skeleton, config, test tooling | — | done |
 | M1 | Buttons (debounce, lockout, chord) and LEDs (PCA9685, states, gamma) + bench tool | M0 | done |
-| M2 | Audio: dual-output playback, chimes, recording with cap, stop and silence detection, loudness | M0 | |
-| M3 | Printer: card rendering (letter, weather, mood faces, coloring page) + Brother QL-800 backend | M0 | |
-| M4 | Local store: SQLite index, settings, content cache, daily state, event and print log, upload outbox | M0 | |
+| M2 | Audio: dual-output playback, chimes, recording with cap, stop and silence detection, loudness | M0 | done |
+| M3 | Printer: card rendering (letter, weather, mood faces, coloring page) + Brother QL-800 backend | M0 | done |
+| M4 | Local store: SQLite index, settings, content cache, daily state, event and print log, upload outbox | M0 | done |
 | M5 | Interaction engine: the button state machine from SPEC §2–§6 | M1–M4 | |
 | M6 | Nightly content pipeline: Claude, OpenAI images and TTS, safety review, approval gate, evergreen fallback, spend tracking | M4 | |
 | M7 | Mood speech-to-text + classification, with offline queue | M4 | |
@@ -89,3 +89,19 @@ python -m pytest
 python -m zozobox.bench leds --fake --hold 0.05
 ```
 On the Pi: `pip install -e .[pi]`, then `zozobox-bench leds` and `zozobox-bench buttons`.
+
+## Hardware notes from M2–M4 (check during M11 bring-up)
+**Audio**
+- ALSA card names and mixer controls are placeholders. The handset is `Phone`, the speaker DAC is `Device`, and the controls are `PCM` and `Mic`. Confirm them with `aplay -l`, `arecord -l` and `amixer -c CARD scontrols`, then set them in `zozobox/audio/config.py`.
+- The volume ceilings (`max_fraction`) are placeholders: handset 0.5, speaker 0.7. Calibrate them with a sound level meter to about 75–80 dBA. M10 also installs an `asound.conf` softvol cap as the backstop.
+- If a ceiling can't be applied, that output refuses to play (`refuse_uncapped=True`). This is deliberate: a wrong control name means silence, not loud audio.
+- Production wiring is `create_alsa_audio()`, which mutes the speaker while recording.
+
+**Printer**
+- `brother_ql==0.9.4` (pip) and `libusb-1.0-0` (apt).
+- Add a udev rule for USB device `04f9:209b`. The QL-800 product ID comes from Brother's USB IDs and isn't in brother_ql's device list.
+- Turn off the QL-800's Editor Lite mode (hold its button until the light goes out).
+
+**Store**
+- The database and media must live on the persistent data partition, not the read-only overlay root.
+- Only the sync process opens the store with `recover_outbox=True`.

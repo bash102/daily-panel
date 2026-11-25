@@ -15,6 +15,7 @@ pi = [
   "lgpio",
   "adafruit-blinka",
   "adafruit-circuitpython-pca9685",
+  "brother_ql==0.9.4",
 ]
 dev = ["pytest>=8"]
 
