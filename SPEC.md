@@ -10,12 +10,21 @@ Design principle: every interaction is a single press, and the box must survive 
 | Computer | Raspberry Pi 3 |
 | Buttons | 4 illuminated arcade buttons: red, green, blue, yellow. Wired straight to Pi GPIO using internal pull-ups (no MCP23017). |
 | Button LEDs | Reworked from 12V to 5V (swap or bypass the built-in resistors), PWM dimmed. |
-| LED driver | **OPEN.** Must be off-the-shelf, low effort, and provide 4 PWM channels at 5V. The Pi 3 has only 2 hardware PWM channels and the 3.5mm audio jack uses them, so the driver must do its own PWM (e.g. a PCA9685-based board). |
+| LED driver | **Adafruit PCA9685 16-channel 12-bit PWM breakout (#815)**, https://www.adafruit.com/product/815. Talks to the Pi over I2C (address 0x40) using `adafruit-circuitpython-pca9685` via Blinka. Generates its own PWM, so the Pi's 2 hardware PWM channels (shared with the 3.5mm jack) stay free. A breakout rather than a HAT, so the GPIO header stays free for the buttons and hook switch. See the wiring below. |
 | Handset | USB retro phone handset (earpiece + mic in one USB audio device), no hook switch. |
 | Box speaker | Secondary speaker used as speakerphone and for chimes. Likely needs its own USB DAC + 2–3W amp. |
 | Printer | Brother QL-800, continuous 62mm paper (no stickers). Driven with `brother_ql`. |
 | Power | One 5.1V 3–4A supply for the Pi and LED driver; the printer uses its own adapter. Root filesystem runs as an overlay so pulling the plug is safe. |
 | Enclosure | Wall-mounted. Printer inside the box behind a ~5mm finger-proof slot with a parent-access lid and ventilation. Handset on a coiled cord no longer than 30cm, with strain relief. |
+
+### 1.1 LED driver wiring (PCA9685)
+- **VCC (logic) → Pi 3.3V.** The board's I2C pull-ups then go to 3.3V, which is safe for the Pi.
+- **V+ and the LED anodes → 5V rail.** Do not power the logic from 5V.
+- **Each LED cathode → a PWM pin (channels 0–3).** The pins sink current. The outputs tolerate 5.5V and sink up to 25mA each.
+- **Outputs in open-drain mode** (OUTDRV = 0 in the MODE2 register). In the default totem-pole mode, an "off" pin drives 3.3V, which leaves ~1.7V across the LED and can make it glow faintly. Check the OUTDRV/INVRT table in the NXP datasheet. If brightness comes out inverted, fix the duty cycle in software.
+- **LED current:** keep it at ~10–20mA. Each output already has a 220Ω resistor on the board, so size the reworked LED resistors with that included: R_total = (5V − Vf) / I.
+- **PWM frequency:** ≥ 1kHz to avoid visible flicker (the PCA9685 goes up to ~1.5kHz).
+- **Why not the AW9523:** its LED supply has to match its logic supply. On the Pi that means 3.3V, which leaves blue LEDs (Vf ~3.0–3.2V) with too little headroom.
 
 ## 2. Buttons
 
@@ -137,6 +146,6 @@ Each item is a multi-step audio sequence that ends in a print.
 - Shows disk use, sync status and safety-check flags.
 
 ## 9. Open items
-1. LED driver part selection (off-the-shelf, 4 PWM channels at 5V).
+1. ~~LED driver part selection~~ → decided: Adafruit PCA9685 (#815).
 2. Confirm the handset has no hook switch.
 3. Cloud services still to choose: relay host (Cloudflare Workers is a natural fit next to R2), AI, text-to-speech, speech-to-text. Archive storage = Cloudflare R2 (decided).

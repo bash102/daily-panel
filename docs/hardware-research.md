@@ -76,4 +76,6 @@ All of these leave the Pi 3's hardware PWM and 3.5 mm audio pins alone (I2C or S
 
 **Add-a-hook: Adafruit Magnetic Contact Switch (PID 375).** At $3.95 it is passive, needs no power pin, has no moving lever to pinch toddler fingers, and works with any handset, wired or Bluetooth. Keep a spare.
 
-**LED driver: Adafruit AW9523 (4886).** It is the cheapest board here, at about $5. It drives 4 LEDs at constant current from the 5 V rail with smooth 256-step dimming and needs no resistors or transistors. It connects over 4 I2C wires (STEMMA QT), so the header stays free and the PWM/audio pins are untouched. It can also read the 4 buttons. Set IMAX to 1/2 (~18 mA) so a software bug can't push 37 mA through 10-20 mA LEDs. Runner-up: the **Adafruit PCA9685 (815)**, with 12-bit PWM and built-in 220 Ω resistors on a breakout that leaves the header free. Size the LED resistors to allow for those 220 Ω.
+**LED driver (decided): Adafruit PCA9685 (815).** It has separate supplies: logic (VCC) at the Pi's 3.3V, and LEDs on 5V through open-drain outputs that tolerate 5.5V. That keeps the Pi's I2C pins safe and gives blue LEDs enough headroom. Each output already has a 220 Ω resistor on the board, so include it when sizing the LED resistors.
+
+*Superseded:* the Adafruit AW9523 (4886) was the first pick. It was dropped because its LED anodes run from VIN, which must equal the logic voltage. On a Pi that means 3.3V, too low for blue LEDs. Running it at 5V would put 5V I2C pull-ups on the Pi's pins. One retailer also reports it is no longer stocked.
